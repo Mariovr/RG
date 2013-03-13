@@ -293,12 +293,13 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
 	  send = end
         try:
           #make sure that you divide step by a dividor from step 
-          energierg,rgeq,rgeqsaveback = rf.littleLoop(rgeq,cstep/2.,n*4,complexstepd = complexstep,end = send)
+          energierg,rgeq,rgeqsaveback = rf.littleLoop(rgeq,cstep/2.,n*2,complexstepd = complexstep,end = send)
           assert(not isinstance(rgeq.g,complex))
           changeg.continuity_check(rgeq,cstep,conarray,energierg,crit = 2.3)
           lastkp = True
         except (ValueError, np.linalg.linalg.LinAlgError,DiscontinuityError) as e:
 	  print e
+	  conarray = []
 	  rgeq = changeg.get_back(rgeq,conarray)
 	  if abs(rgeq.g) > 1e-3:
 	    complexstep *= 2.
@@ -451,14 +452,18 @@ def testeasysolve():
   calculates all the eigenvalues of the pairingsHamiltonian of a system with double degenerate, equidistant levels and zero seniority
   '''
   eendlev = np.arange(1,13)
+  eendlev = array([0.04,0.08,0.16,0.20,0.32,0.36,0.40,0.52,0.64,0.68,0.72,0.8,1])
+  eendlev = np.sqrt(eendlev)
   seniority = zeros(len(eendlev),float)
   degeneration = np.ones(len(eendlev))*2
+  degeneration = [4,4,4,8,4,4,8,8,4,8,4,8,12]
   alevel = len(eendlev)
   apair = alevel/2
+  apair = 10
   afhxas = 'g'
   waardeafh = 0.
   eta =1.
-  generate_dir('testbetter',None,None)
+  generate_dir('stefanall',None,None)
   #to calculate all the permutations of 1 1 0 0 ... so we choose out a np.arange(alevel) apair levels where we put our pairs (without repetition)
   tdacombinations = combinations(np.arange(alevel),apair)
   onezipper = np.ones(apair)
@@ -467,7 +472,7 @@ def testeasysolve():
   i = 0
   for a in [0,1]:
     if a == 0:
-      g = -0.001 ; enddatak = -1. ;   stepg = -0.001
+      g = -0.0001 ; enddatak = -0.1 ;   stepg = -0.001
     else:
       g = 0.0001 ; enddatak = 10. ; stepg = 0.003
     rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
@@ -578,7 +583,7 @@ if __name__ == "__main__":
   #main()
   #dangmain()
   #testcircumvent()
-  testeasysolve()
+  #testeasysolve()
   #addlevel()
-  #facintmain()
+  facintmain()
   

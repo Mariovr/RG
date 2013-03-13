@@ -89,8 +89,9 @@ class Continuity(object): #needs to be efficiently written because it will be on
     return bool
   
   def get_back(self,rgeq,carray):
-    self.setvar(rgeq,carray[-1][0])
-    rgeq.rgsolutions = carray[-1][1]
+    if carray is not []:
+      self.setvar(rgeq,carray[-1][0])
+      rgeq.rgsolutions = carray[-1][1]
     return rgeq
   
 class Xi_Continuity(Continuity):    
