@@ -10,7 +10,20 @@ import writepairing as wp
 
 #to surf with sockets commandline: ssh -D 32190 molgate0 (32190 is a random number lower then 64000)
 #proxy instellen -> manual , sockets : 127.0.0.1 (localhost) vakje er naast(random number dat je in de commandline hebt getypt)
-      	  
+ 
+class DiscontinuityError(Exception):
+  def __init__(self,step, ccrit , carray , new ):
+    self.step = step
+    self.carray = carray
+    self.newv = new
+    self.ccrit = ccrit
+    print self 
+    
+  def __repr__(self):
+    string = "#We encoutered a discontinuity error in the variation of the following variable"
+    string += "#the array with the former values is %r and the new value is %r" %(self.carray,self.newv)
+    string += "#so decrease the stepsize %r or enlarge the continuity criterium %r\n" %(self.step , self.ccrit) 
+ 
 def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival = 1. , pairingdtje = None, sortstep = 'g'):
   '''
   function makes the interaction constant complex in order to circumvent a critical point
@@ -21,6 +34,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
   REMARK: you can use this functions on two different ways: 1) to circumvent a critical point at some g then it just increases 
   netto with one step of the interaction constant of the wrapper function that calls this function.
   2) to go from a start interactionconstant 
+  REMARK: the pairingdtje variable is important because this function is also used by allstateslowg and there it hasn't even a start solution
   '''
   rgeq = rgeq.copy()
   if rgeq.rgsolutions is None:
@@ -32,11 +46,11 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
   if end == None:
     crit = abs(rgeq.g)/100.
     if n > 10:
-      crit *= n/10.
+      crit *= 10.
     phis = abs(rgeq.g)/complexstepd #step of phi the complex variable
   else:
-    crit = abs((rgeq.g+end)/10.)/10.*n/2.
-    n = int(abs(end-rgeq.g)/abs(stepg)) + 1
+    crit = abs((rgeq.g+end)/10.)/10.
+    n = int(abs(end-rgeq.g)/(abs(stepg))) + 1
     phis = abs(rgeq.g+end)/complexstepd #step of phi the complex variable
   assert(rgeq.rgsolutions is not None)
   rgeq.g += 1.j * phi
@@ -51,7 +65,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     argxi = {'xiend': 0.6, 'xistep': -0.01}
     print ('we start by reducing the xi value to xi = %f' %argxi['xiend'])
     rgeq = rg.RichardsonSolver(rgeq).change_xi(argxi)
-  nauw= 100. # the bigger the better the accuracy
+  nauw= 10. # the bigger the better the accuracy
   n = n *nauw
   stepg /= nauw
   for i in xrange(int(n)):
@@ -592,7 +606,7 @@ def readrgvars(g, name = 'rgvar.dat'):
   ref.close()
   return rgvars
   
-def continuity_check(arraysol, nval,crit = 2.):
+def continuity_check2(arraysol, nval,crit = 2.):
   '''
   function that investigates, if the new solution: $nval forfilles the continuity criterium:
   that is that the mean difference of the previous $grootte solutions *$crit is bigger then the difference between $nval
@@ -615,7 +629,32 @@ def continuity_check(arraysol, nval,crit = 2.):
       arraysol.append(nval)
     else:
       raise ContinuityError(crit,step,arraysol,nval)
-  
+ 
+def continuity_check(rgeq,step,arraysol, nval,crit = 2.):
+    '''
+    function that investigates, if the new solution: $nval forfilles the continuity criterium:
+    that is that the mean difference of the previous $grootte solutions *$crit is bigger then the difference between $nval
+    and the previous solution. If this is the case the last element of $arraysol is deleted and $nval is inserted at the end.
+    If this is not the case $arraysol is not changed and the variable $con is set False
+    n is a value that says how many steps further the function went
+    REMARK: Very important function for (generating_datak) to check if there is no jump to an excited state.
+    '''
+    grootte = 5
+    meand = 0
+    if len(arraysol) < grootte:
+      arraysol.append((rgeq.g,rgeq.rgsolutions,nval))
+    else:
+      adapter = abs((rgeq.g - arraysol[-1][0]) /(arraysol[-1][0]-arraysol[-2][0])) #we use this to take into account largerstepsizes
+      for i in range(grootte-1): 
+	meand += abs(arraysol[i][2]- arraysol[i+1][2])
+      verschil = abs(arraysol[-1][2] - nval)      
+      if verschil < meand/(grootte-1)* crit*adapter:
+	del(arraysol[0])
+	arraysol.append((rgeq.g,rgeq.rgsolutions,nval))
+      else:
+	raise DiscontinuityError(step,crit,arraysol,nval) 
+ 
+ 
 def remove(name,regexp = False):
   '''
   this functions removes all the files that contains a number.number syntax in the current working directory

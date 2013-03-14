@@ -7,22 +7,8 @@ import writepairing as wp
 import rgfunctions as rf
 import plotfunctions as pf
 
-class DiscontinuityError(Exception):
-  def __init__(self,step, ccrit , carray , new ):
-    self.step = step
-    self.carray = carray
-    self.newv = new
-    self.ccrit = ccrit
-    print self 
-    
-  def __repr__(self):
-    string = "We encoutered a discontinuity error in the variation of the following variable\n"
-    string += "the array with the former values is %r and the new value is %r\n" %(self.carray,self.newv)
-    string += "so decrease the stepsize %r or enlarge the continuity criterium %r\n" %(self.step , self.ccrit) 
-    
-
 class Continuity(object): #needs to be efficiently written because it will be one of the most used functions
-  def continuitycheck(self,rgeq,carray,step,end, ccrit = 1.5,pf = None):
+  def continuitycheck(self,rgeq,carray,step,end, ccrit = 2.,pf = None):
     '''
     Increases Xi and find the new rg solutions but assure continuity
     REMARK: you can see this function as a wrapper function of both nr.solve and rgf.continuity_check
@@ -41,7 +27,7 @@ class Continuity(object): #needs to be efficiently written because it will be on
       if not consol:
 	try:	
 	  self.continuity_check(rgeq,step,carray,rgsol, crit = ccrit)
-	except DiscontinuityError as e:
+	except rf.DiscontinuityError as e:
 	  rgeq.rgsolutions = saverg
 	  if pf is not None:
 	    pf.write("#We arrived at a discontinuity\n")
@@ -71,7 +57,7 @@ class Continuity(object): #needs to be efficiently written because it will be on
     if len(arraysol) < grootte:
       arraysol.append((self.getvar(rgeq),rgeq.rgsolutions,nval))
     else:
-      adapter = abs((self.getvar(rgeq) - arraysol[-1][0]) / (arraysol[-1][0]-arraysol[-2][0])) #we use this to take into account largerstepsizes
+      adapter = abs((self.getvar(rgeq) - arraysol[-1][0]) /(arraysol[-1][0]-arraysol[-2][0])) #we use this to take into account largerstepsizes
       for i in range(grootte-1): 
 	meand += abs(arraysol[i][2]- arraysol[i+1][2])
       verschil = abs(arraysol[-1][2] - nval)      
@@ -79,19 +65,19 @@ class Continuity(object): #needs to be efficiently written because it will be on
 	del(arraysol[0])
 	arraysol.append((self.getvar(rgeq),rgeq.rgsolutions,nval))
       else:
-	raise DiscontinuityError(step,crit,arraysol,nval)
+	raise rf.DiscontinuityError(step,crit,arraysol,nval)
   
   def endcheck(self,rgeq,step,end,carray):
     bool = False
-    if self.getvar(rgeq) +abs(step)/3. >= end and self.getvar(rgeq) - abs(step)/3. <= end:
+    if self.getvar(rgeq) +abs(step)* 0.8 >= end and self.getvar(rgeq) - abs(step) * 0.8 <= end:
       self.setvar(rgeq,end)
       bool = True
     return bool
   
-  def get_back(self,rgeq,carray):
+  def get_back(self,rgeq,carray, i = -1):
     if carray is not []:
-      self.setvar(rgeq,carray[-1][0])
-      rgeq.rgsolutions = carray[-1][1]
+      self.setvar(rgeq,carray[i][0])
+      rgeq.rgsolutions = carray[i][1]
     return rgeq
   
 class Xi_Continuity(Continuity):    
@@ -137,17 +123,11 @@ class Change_G(object):
   '''
   This class has as main task the circumvention of a critical point of a Richardson-Gaudin look alike set of equations
   '''
-  def __init__(self,rgeq,endg = None,cg = True):
-    self.endg = endg
-    self.richeq = rgeq
+  def __init__(self,rgeq,cg = True):
+    self.richeq = rgeq.copy()
     if cg == True: self.concheck = CG_Continuity()
     else: self.concheck = RG_Continuity()
-    self.savesolutions = []
-    if self.richeq.rgsolutions is None:
-      print 'There was no startsolution yet so we searched for it in Change_G init'
-      d = calculated(self.richeq.energiel,self.richeq.ontaardingen)
-      self.richeq = genstartsol(self.richeq,d,self.endg,pairingd = None, begin = None) 
-      print 'So we found the following startsolution at g = %s : %s' %(str(self.richeq.g),str(self.richeq.rgsolutions))
+    assert(self.richeq.rgsolutions != None)
     
   def change_g(self,changeg,n = 10.):
     print 'we entered change_g of the class Change_G'
@@ -155,17 +135,14 @@ class Change_G(object):
     conarray = []
     gstep = changeg['gstep'] ; gend =  changeg['gend']
     if isinstance(self.concheck,CG_Continuity): 
-      self.richeq.g = self.richeq.g+ 1.j* abs(self.richeq.g)/(1000.*n)
+      self.richeq.g = self.richeq.g+ 1.j* abs(self.richeq.g)/(10000.*n)
       self.richeq.solve()
-    while(self.concheck.getvar(self.richeq) != gend):
-      #little block to become a better guess for the rgvars
-      #print self.richeq.g , changeg['gend'] , changeg['gstep']
-      print self.richeq.g , conarray , gstep,gend, self.richeq.rgsolutions
-      self.concheck.continuitycheck(self.richeq,conarray,gstep,gend)
+    while(self.concheck.getvar(self.richeq) != gend or self.richeq.g.imag == self.richeq.g.real/10.):
+      print self.richeq.g 
+      self.concheck.continuitycheck(self.richeq,conarray,gstep/n,gend)
     print 'we changed g: %s' % str(self.richeq.g)
-    if isinstance(self.concheck,RG_Continuity):
-      self.savesolutions[self.richeq.g] = self.richeq.rgsolutions
     return self.richeq
+  
   
   def circumvent_point(self,critr,stepr,critc,stepc,n):
     cchange = {'gstep':stepc,'gend':critc}

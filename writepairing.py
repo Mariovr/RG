@@ -241,7 +241,6 @@ def generating_data(infilename,typint,eta,koppelingsconstante,afhw,npair,nlevels
 
 def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False ,etachange = False):
   conarray = [] # array that is used to check continuity
-  ncon = 1.
   changeg = RG_Continuity()
   plotenergyfile = open("plotenergy%s.dat" %exname,"w") #opening of the file that's going to contain the results
   if tdafilebool is True:
@@ -263,14 +262,21 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
   #start from the previous solution if the stepwidth of the dependent variable of the file is low enough (WATCH OUT for critical points)
   if rgeq.rgsolutions is None: 
     energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival,ccrit = 3.)   
-  rgeqsaveback = rgeq.copy()
-  while (rgeq.g != end ):  
+  complexg = [Change_G(rgeq).change_g({'gend': abs(rgeq.g)/1000.,'gstep': abs(rgeq.g)/10000. })] #array where we save the rgeq with complex g
+  while (rgeq.g != end ):    
+    rgeq.g += step
+    if (rgeq.g.real - abs(step)*0.8 < end and rgeq.g.real + abs(step) *0.8 > end):
+      rgeq.g = end
     if etachange == True:
       rgeq.eta = rgeq.g/-2.
-    print 'The interaction constant is: %s ' % str(rgeq.g)    
-    saveg = rgeq.g
+    print 'The interaction constant is: %s ' % rgeq.g    
     try:
-      energierg = changeg.continuitycheck(rgeq,conarray,step,end,pf =plotenergyfile)	
+      energierg = rgeq.solve()
+      try:
+	continuity_check(rgeq,step,conarray, energierg,crit = 1.8)
+      except DiscontinuityError as e:
+	plotenergyfile.write("# %s discontinuity : %r \n" %(str(rgeq.g),str(e)))
+	raise ValueError
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
       """
       we arrived at a critical point so now we circumvent it by making g complex.
@@ -280,34 +286,35 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
       # if you use the generating_datak wrapper probeExitedStates make sure n = 1 because it takes the difference of exited states with the groundstate and
       #if the critical points of the exited state are different in contrast to those of the ground state then you'll have noisy graphs.
       plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.g))
-      rgeq.g = saveg #go a bit further back so it's easier to become complex (we are back two steps)
-      rgeq.rgsolutions = conarray[-1][1]
+      rgeq.g -= step 
       cstep = step
       send = None
-      complexstep = 10000 ; extremecp = False
+      complexstep = 1000. ; extremecp = False
+      if abs((complexg[-1].g- rgeq.g )/(step*0.01)) >= 101 :
+	try:
+	  complexg.append( Change_G(rgeq).change_g({'gend': abs(rgeq.g)/500.,'gstep': abs(rgeq.g)/complexstep }))
+	except:
+	  print "we couldn't create a complex g at this point so we go back to the former"
       while lastkp == False:	
-	if n > 1:
-	  #step += step /3.
-	  pass
-	elif (rgeq.g.real - abs(cstep)*1.5 < end and rgeq.g.real + abs(cstep) *1.5 > end):
+	if n > 11:
+	  send = rgeq.g +2*step
+	elif (rgeq.g.real - abs(step)*0.8 < end and rgeq.g.real + abs(step) *0.8 > end):
 	  send = end
         try:
           #make sure that you divide step by a dividor from step 
-          energierg,rgeq,rgeqsaveback = rf.littleLoop(rgeq,cstep/2.,n*2,complexstepd = complexstep,end = send)
-          assert(not isinstance(rgeq.g,complex))
-          changeg.continuity_check(rgeq,cstep,conarray,energierg,crit = 2.3)
+          energierg,rgeq,rgeqsaveback = rf.littleLoop(complexg[-1],cstep/2.,n*2,complexstepd = complexstep,end = send)
+          complexg.append(rgeqsaveback)
+          continuity_check(rgeq,step,conarray, energierg,crit = 1.5)
           lastkp = True
         except (ValueError, np.linalg.linalg.LinAlgError,DiscontinuityError) as e:
+	  savesols = True
 	  print e
-	  conarray = []
-	  rgeq = changeg.get_back(rgeq,conarray)
 	  if abs(rgeq.g) > 1e-3:
 	    complexstep *= 2.
 	  else:
 	    complexstep /= 10.
-	  if rgeq.g - abs(step)*1.5 < end and rgeq.g + abs(step) *1.5 > end:
+	  if rgeq.g - abs(cstep)*0.8 < end and rgeq.g + abs(cstep) *0.8 > end:
 	    cstep /= 2.	
-	    ncon = 3.
 	    if abs(step) < 1e-7:
 	      n = 100000
 	  else:  
@@ -315,14 +322,7 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
 	    n *= 10
 	  print 'couldn\'t circumvent the critical point at g = %f, try to make the step of the interaction constant bigger in complexspace' %rgeq.g
 	  print 'circumventing a critical point at %g steps and step in complexspace is %f' %(n, complexstep)
-	  if n > 1000:
-	    assert(isinstance(rgeq.g,float) and isinstance(step,float))
-	    send = rgeq.g+2*step 
-	    conarray = []
-	    complexstep = 100000
-	    energierg,rgeq, rgeqsaveback = rf.littleLoop(rgeqsaveback,savestep,2.,complexstepd = complexstep,end = send)
-            lastkp = True
-            step = savestep/10.          
+       
     finally:
       if tdafilebool is True:
 	try:
@@ -570,11 +570,11 @@ def facintmain():
   tdastartd = {}
   tdastartd = {0:10}
   enddatak = -0.001
-  stepg = 0.001
+  stepg = +0.001
   afhxas = 'g'
   rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
   generate_dir('romboutsdesolve2',None,None)
-  generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = True,tdafilebool = True)
+  generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
   generate_plot(alevel,apair,0.,afhxas,plotg = False)  
     
     
