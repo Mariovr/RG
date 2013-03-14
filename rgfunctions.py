@@ -3,28 +3,63 @@ import numpy as np
 from numpy import ones, zeros ,array, sort,linalg,empty
 from itertools import combinations,combinations_with_replacement
 from operator import mul
-import linecache, random
+import linecache,copy
 
 import richardsongaudin as rg
 import writepairing as wp
 
 #to surf with sockets commandline: ssh -D 32190 molgate0 (32190 is a random number lower then 64000)
 #proxy instellen -> manual , sockets : 127.0.0.1 (localhost) vakje er naast(random number dat je in de commandline hebt getypt)
- 
-class DiscontinuityError(Exception):
-  def __init__(self,step, ccrit , carray , new ):
-    self.step = step
-    self.carray = carray
-    self.newv = new
-    self.ccrit = ccrit
-    print self 
+
+class Change_G(object):
+  '''
+  This class has as main task the circumvention of a critical point of a Richardson-Gaudin look alike set of equations
+  '''
+  def __init__(self,req,endg):
+    self.richeq = req
+    self.endg = endg
+    self.savesolutions = {}
+    if self.richeq.rgsolutions is None:
+      d = calculated(self.richeq.energiel,self.richeq.ontaardingen)
+      self.richeq = genstartsol(self.richeq,d,self.endg,pairingd = None, begin = None)
     
-  def __repr__(self):
-    string = "#We encoutered a discontinuity error in the variation of the following variable"
-    string += "#the array with the former values is %r and the new value is %r" %(self.carray,self.newv)
-    string += "#so decrease the stepsize %r or enlarge the continuity criterium %r\n" %(self.step , self.ccrit) 
- 
-def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival = 1. , pairingdtje = None, sortstep = 'g'):
+  def change_gcomplex(self,cchange,n):
+    assert(self.richeq.rgsolutions is not None)
+    richeq.g += 1.j * abs(self.richeq.g)/(1000.*n) #make sure cchange['start'] is a very small real number
+    while(richeq.g.imag is not cchange['end']):
+      #little block to become a better guess for the rgvars
+      self.richeq.g += 1.j*cchange['step']
+      energierg = self.richeq.solve()
+      if self.richeq.g.imag + abs(step)/2. >= cchange['end'] and self.richeq.g.imag - abs(step)/2. <= cchange['end']:
+	self.richeq.g.imag = cchange['end']
+    print 'we made g complex: %f' %self.richeq.g
+    self.savesolutions[rgeq.g] = self.richeq.rgsolutions
+    return self.richeq
+    
+  def change_greal(self,rchange,n):
+    assert(self.richeq.rgsolutions is not None)
+    while(self.richeq.g.real is not rchange['end']):
+      #little block to become a better guess for the rgvars
+      self.richeq.g += rchange['step']
+      energierg = self.richeq.solve()
+      if self.richeq.g.imag + abs(step)/2. >= rchange['end'] and self.richeq.g.imag - abs(step)/2. <= rchange['end']:
+	self.richeq.g.imag = rchange['end']
+    print 'we made g complex: %f' %self.richeq.g
+    self.savesolutions[rgeq.g] = self.richeq.rgsolutions
+    return self.richeq
+  
+  def circumvent_point(self,critr,stepr,critc,stepc,n):
+    cchange = {'step':stepc,'end':critc}
+    rchange = {'step':stepr,'end':critr}
+    self.change_gcomplex(cchange,n)
+    self.change_greal(rchange,n)
+    cchange = {'step':stepc/2.,'end':0.}
+    self.change_gcomplex(cchange,n)
+    return self.richeq
+    
+  
+   
+def littleLoop(rgeqs,stepg,n,complexstepd = 10000,end = None,backxi = False,xival = 1. , pairingdtje = None):
   '''
   function makes the interaction constant complex in order to circumvent a critical point
   it makes a little loop around the critical point after the execution we have a rg solution one stepg further
@@ -34,23 +69,20 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
   REMARK: you can use this functions on two different ways: 1) to circumvent a critical point at some g then it just increases 
   netto with one step of the interaction constant of the wrapper function that calls this function.
   2) to go from a start interactionconstant 
-  REMARK: the pairingdtje variable is important because this function is also used by allstateslowg and there it hasn't even a start solution
   '''
-  rgeq = rgeq.copy()
+  rgeq = copy.deepcopy(rgeqs)
   if rgeq.rgsolutions is None:
     energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdtje, xival = xival)
   print ('######################################')
-  print ('Making g complex to circumvent a critical point on g = %s and n = %g ' %(str(rgeq.g) , n))
+  print ('Making g complex to circumvent a critical point on g = %f and n = %g ' %(rgeq.g , n))
   print ('######################################')
-  phi = abs(rgeq.g)/(10000.*n)
+  phi = abs(rgeq.g)/(1000.*n)
   if end == None:
-    crit = abs(rgeq.g)/100.
-    if n > 10:
-      crit *= 10.
+    crit = abs(rgeq.g)/100.*n/2.
     phis = abs(rgeq.g)/complexstepd #step of phi the complex variable
   else:
-    crit = abs((rgeq.g+end)/10.)/10.
-    n = int(abs(end-rgeq.g)/(abs(stepg))) + 1
+    crit = abs((rgeq.g+end)/10.)/10.*n/2.
+    n = int(abs(end-rgeq.g)/abs(stepg)) + 1
     phis = abs(rgeq.g+end)/complexstepd #step of phi the complex variable
   assert(rgeq.rgsolutions is not None)
   rgeq.g += 1.j * phi
@@ -65,10 +97,19 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     argxi = {'xiend': 0.6, 'xistep': -0.01}
     print ('we start by reducing the xi value to xi = %f' %argxi['xiend'])
     rgeq = rg.RichardsonSolver(rgeq).change_xi(argxi)
-  nauw= 10. # the bigger the better the accuracy
+  nauw= 100. # the bigger the better the accuracy
   n = n *nauw
   stepg /= nauw
+  saverg1 = None ; saverg2 = None
   for i in xrange(int(n)):
+    if saverg1 is  None:
+      saverg1 = rgeq.rgsolutions
+    if saverg1 is not None and saverg2 is None :
+      saverg2 = rgeq.rgsolutions
+    if saverg1 is not None and saverg2 is not None:
+      saverg1 = saverg2
+      saverg2 = rgeq.rgsolutions
+      rgeq.rgsolutions += saverg2-saverg1
     rgeq.g += stepg
     if end is not None:
       if rgeq.g.real - abs(stepg) < end and rgeq.g.real + abs(stepg) > end:
@@ -79,7 +120,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     print ('distance measure g = : %s' % str(rgeq.g))
   print ('Now are we going to make g back real %s' %str(rgeq.g))
   phis /= 2.
-  rgeq2 = rgeq.copy()
+  rgeq2 = copy.deepcopy(rgeq)
   if backxi is True:
     argxi = {'xiend': xival, 'xistep': 0.01}
     print ('now we go back to xi = xival')
@@ -90,6 +131,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
       rgeq.g = rgeq.g.real
     energierg = rgeq.solve()
     print ('distance measure rgeq.g = : %s' % str(rgeq.g))
+      
   print ('circumvented the critcal point on %f succeeded !!!!!!!!!!!!!!!!!' % rgeq.g.real)
   return energierg,rgeq,rgeq2
   
@@ -154,7 +196,7 @@ def generate_dir(name,infilename,args = None, prefix = ''):
     shutil.copy(infilename,dir)
   if args is not None:
     for i in args:
-      shutil.copy(i,dir)
+      shutil.copy(i,x)
   if prefix is not '':
     x = [i for i in os.listdir(os.getcwd()) if prefix in i]
     for a in x:
@@ -606,7 +648,7 @@ def readrgvars(g, name = 'rgvar.dat'):
   ref.close()
   return rgvars
   
-def continuity_check2(arraysol, nval,crit = 2.):
+def continuity_check(arraysol, nval,crit = 2.):
   '''
   function that investigates, if the new solution: $nval forfilles the continuity criterium:
   that is that the mean difference of the previous $grootte solutions *$crit is bigger then the difference between $nval
@@ -628,33 +670,9 @@ def continuity_check2(arraysol, nval,crit = 2.):
       del(arraysol[0])
       arraysol.append(nval)
     else:
-      raise ContinuityError(crit,step,arraysol,nval)
- 
-def continuity_check(rgeq,step,arraysol, nval,crit = 2.):
-    '''
-    function that investigates, if the new solution: $nval forfilles the continuity criterium:
-    that is that the mean difference of the previous $grootte solutions *$crit is bigger then the difference between $nval
-    and the previous solution. If this is the case the last element of $arraysol is deleted and $nval is inserted at the end.
-    If this is not the case $arraysol is not changed and the variable $con is set False
-    n is a value that says how many steps further the function went
-    REMARK: Very important function for (generating_datak) to check if there is no jump to an excited state.
-    '''
-    grootte = 5
-    meand = 0
-    if len(arraysol) < grootte:
-      arraysol.append((rgeq.g,rgeq.rgsolutions,nval))
-    else:
-      adapter = abs((rgeq.g - arraysol[-1][0]) /(arraysol[-1][0]-arraysol[-2][0])) #we use this to take into account largerstepsizes
-      for i in range(grootte-1): 
-	meand += abs(arraysol[i][2]- arraysol[i+1][2])
-      verschil = abs(arraysol[-1][2] - nval)      
-      if verschil < meand/(grootte-1)* crit*adapter:
-	del(arraysol[0])
-	arraysol.append((rgeq.g,rgeq.rgsolutions,nval))
-      else:
-	raise DiscontinuityError(step,crit,arraysol,nval) 
- 
- 
+      con = False
+  return con  
+  
 def remove(name,regexp = False):
   '''
   this functions removes all the files that contains a number.number syntax in the current working directory

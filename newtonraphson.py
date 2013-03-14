@@ -56,6 +56,9 @@ def gaussPivot(a,b,tol=1.0e-9):
     b[k] = (b[k] - dot(a[k,k+1:n],b[k+1:n]))/a[k,k]
   return b
 
+
+
+
 def solve(f,x , tol=1.0e-10):
   """
   newton-raphson method for a system of nonlineair equations.
@@ -81,17 +84,17 @@ def solve(f,x , tol=1.0e-10):
       x[i] = temp
       jac[:,i] = (f1 - f0)/h
     return jac,f0   
-  for i in xrange(200):
+  for i in xrange(100):
     jac,f0 = jacobian(f,x)
     nauw = abs(f0)
     if sum(nauw) < tol: return x
     #dx = gaussPivot(jac,-f0) #we commented our self written linalg solver out becaus the scipy solver is quicker and does the same thing
     dx = linalg.solve(jac,-f0)
     x = x + dx
-    #print "iteration: %g" %i , "|f(x)|= " , nauw , x 
+    #print "iteration: %g" %i , "|f(x)|= " , nauw
   print "Too many iterations"
-  return x
-  
+  raise ValueError
+
 def main():
   def test_system(x):
     f = zeros((len(x)),float)

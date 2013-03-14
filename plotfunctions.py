@@ -1,10 +1,9 @@
 #!/usr/bin/env python
+
 import numpy as np
 import pylab as pl
 import os,sys,shutil
 import re
-
-import tdasolver as tda
 
 def plot_2col(name,tit = 'title',xname = 'independendvar',yname = 'dependendvar'):
   print('start with the generation of a plot with plot_2col in rgfunctions.py')
@@ -129,27 +128,22 @@ def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar'
   pl.savefig('im%s.png' %namerg)
   pl.close()
 
-def plotrgvarsxi(apair,eendlev,g,ref = 'rergvarxi.dat' , namerg = 'rgvarXI' , redbcs = True,eta = 1.):
+def plotrgvarsxi(apair,eendlev,g,ref = 'rergvarxi.dat' , namerg = 'rgvarXI'):
   plotre = open(ref, 'r')
-  datare = np.loadtxt(plotre,comments = '#')
+  datare = np.loadtxt(plotre)
   pl.figure()
-  irange = np.arange(3,2*apair+3,2)
-  def calc_sinr(i,red):
-    if red:
-      return eendlev[i]*2.
-    else:
-      return eendlev[i]*eendlev[i]*eta
+  irange = np.arange(1,2*apair+1,2)
   for i in irange:
     pl.plot(datare[0,i],datare[0,i+1],'g.', markersize = 10)
     pl.plot(datare[len(datare[:,0])-1,i],datare[len(datare[:,0])-1,i+1],'r.',mfc = 'None', markersize = 10)
     pl.plot(datare[:,i],datare[:,i+1],'b-')
   for i in range(len(eendlev)):
-    pl.axvline(x = calc_sinr(i,redbcs) , c= 'k' ,linestyle = '--')
+    pl.axvline(x = eendlev[i]*2. ,c=  'k',linestyle = '--')
   pl.xlabel('real part of rgvars (a.u)')
   pl.ylabel('imaginary part of rgvars (a.u.)')
   pl.title('Richardson-Gaudin variables at g = %f (xi in [0,1])' %(g))
-  #pl.xlim((2*eendlev[0]-5*(eendlev[1]-eendlev[0]),2*eendlev[-1]+0.5))
-  #pl.ylim((-20,20))
+  pl.xlim((2*eendlev[0]-5*(eendlev[1]-eendlev[0]),2*eendlev[-1]+0.5))
+  pl.ylim((-20,20))
   pl.savefig('%s.png' %namerg )
   pl.close() 
   
