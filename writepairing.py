@@ -463,7 +463,7 @@ def testeasysolve():
   eta =1.
   generate_dir('romboutsprob',None,None)
   #to calculate all the permutations of 1 1 0 0 ... so we choose out a np.arange(alevel) apair levels where we put our pairs (without repetition)
-  tdacombinations = combinations(np.arange(alevel),apair)
+  tdacombinations = combinations_with_replacement(np.arange(alevel),apair)
   onezipper = np.ones(apair)
   tdacor = open('tdacor.dat','w')
   tdacor.write('#This file contains the correspondence between the directorys and the start tda distributions \n #The first column is the directory number and on the same line is the tda start distribution written \n')
@@ -475,16 +475,24 @@ def testeasysolve():
       g = 0.0001 ; enddatak = 1. ; stepg = 0.003
     rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
     for tdadict in tdacombinations:
+      tdastartd = {}
+      goodsol = True
+      for j in tdadict:
+        a = tdadict.count(j)      
+        tdastartd[j] = a
+        if a*2 + rgeq.senioriteit[j]*2 > rgeq.ontaardingen[j]:
+	  goodsol = False
+      if goodsol == False:
+	continue
       if i > -1:
 	generate_dir('%g' %i,None,None) #only handy for a small amount of levels
 	#tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
-	tdastartd = dict(zip(tdadict,onezipper))
 	tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
 	print 'we start generating_datak with: ', tdastartd
 	generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = True)
 	generate_plot(alevel,apair,waardeafh,afhxas,plotg = False)
 	os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
-      i += 1
+        i += 1
     tdacor.close()
 
 def dangSn(filen,cutoff = 1e5):

@@ -371,8 +371,14 @@ class RichardsonSolver(object):
       
   def main_desolve(self,xistep = -0.01,rgwrite = False,plotrgvarpath = False,plotepath = False,xlim = True, ylim = (20,20)):
     assert(xistep < 0)
-    xiarg = {'xiend' : 0. , 'xistep' : xistep}
+    xiarg = {'xiend' : 0.01 , 'xistep' : xistep}
     self.change_xi(xiarg)
+    if isinstance(self.richeq,RichFacInt):
+      self.richeq.xi = 0.0001
+    else:
+      self.richeq.xi = 0.
+    rgsol = self.richeq.solve()
+    self.xisolutions[self.richeq.xi] = (rgsol,self.richeq.rgsolutions)
     if rgwrite: self.writexipath()
     if plotrgvarpath: self.plotrgvarsxi(xlim = xlim , ylim = ylim)
     if plotepath: self.plotexi()
