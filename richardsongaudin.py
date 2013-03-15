@@ -3,7 +3,7 @@ import math
 import numpy as np
 from numpy import array, zeros, ones, arange
 from numpy import append, delete, polynomial # here are the numpy imports that are at this time 23/08/2012 not compatibel with pypy
-import copy
+import copy,inspect
 
 from tdasolver import *
 import newtonraphson as nr
@@ -33,7 +33,7 @@ class RichardsonEq(object):
 #senioritys: %s
 #the interaction constant: %s
 #the number of pairs: %s, the xivalue: %s
-#the solutions of the set of equations %s''' %(str(self.energiel),str(self.ontaardingen),str(self.senioriteit),str(self.g),str(self.apair),str(self.xi),str(self.rgsolutions))
+#the solutions of the set of equations %s''' %(str(self.energiel).translate(None,'\n'),str(self.ontaardingen).translate(None,'\n'),str(self.senioriteit).translate(None,'\n'),str(self.g),str(self.apair),str(self.xi),str(self.rgsolutions).translate(None,'\n'))
     return stringrep
     
   def step_xi(self,step = 1e-2):
@@ -50,8 +50,8 @@ class RichardsonEq(object):
   def set_apair(self,ap):
     self.apair = ap
  
-  def set_sj(self):
-    self.sj = 1./4.*self.ontaardingen - 1./2.*self.senioriteit
+  def getvar(self,var):
+    return dict(inspect.getmembers(self))[var]
     
   def test_goodsol(self):
     zerosd = self(self.rgsolutions) 
@@ -225,7 +225,7 @@ class RichardsonSolver(object):
     variables at Xi = 0
     '''
     tdadict = np.zeros(self.richeq.alevel)
-    assert(self.richeq.xi == 0)
+    assert(self.richeq.xi <= 0.01)
     realrgvar = self.richeq.rgsolutions.real
     realrgvar.sort()
     assert(self.tda.g is not 0.)

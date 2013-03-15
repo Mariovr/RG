@@ -321,7 +321,7 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
 	    complexstep = 100000
 	    energierg,rgeq, rgeqsaveback = rf.littleLoop(rgeqsaveback,savestep*100,2.,complexstepd = complexstep,end = send)
             lastkp = True
-            step = savestep/10.          
+            step = savestep        
     finally:
       if tdafilebool is True:
 	try:
@@ -489,7 +489,7 @@ def testeasysolve():
 	#tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
 	tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
 	print 'we start generating_datak with: ', tdastartd
-	generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = True)
+	generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
 	generate_plot(alevel,apair,waardeafh,afhxas,plotg = False)
 	os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
         i += 1
