@@ -195,8 +195,7 @@ def generating_data(infilename,typint,eta,koppelingsconstante,afhw,npair,nlevels
 	      energierg, rgeq,rgeq2 = littleLoop(rgeq,(send - rgeq.g)/gg[i][0],gg[i][1],complexstepd = 10000,end = send ,backxi = False,xival = 1.)
 	      a = True
 	    except (ValueError,np.linalg.linalg.LinAlgError) as e:
-	      i += 1
-	   
+	      i += 1	   
 	else:
 	  try:
 	    energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
@@ -242,6 +241,7 @@ def generating_data(infilename,typint,eta,koppelingsconstante,afhw,npair,nlevels
 def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False ,etachange = False):
   conarray = [] # array that is used to check continuity
   changeg = RG_Continuity()
+  eerstekp = False
   plotenergyfile = open("plotenergy%s.dat" %exname,"w") #opening of the file that's going to contain the results
   if tdafilebool is True:
     tdafile = open('tdafile.dat','w')
@@ -262,21 +262,15 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
   #start from the previous solution if the stepwidth of the dependent variable of the file is low enough (WATCH OUT for critical points)
   if rgeq.rgsolutions is None: 
     energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival,ccrit = 3.)   
-  complexg = [Change_G(rgeq).change_g({'gend': abs(rgeq.g)/1000.,'gstep': abs(rgeq.g)/10000. })] #array where we save the rgeq with complex g
-  while (rgeq.g != end ):    
-    rgeq.g += step
-    if (rgeq.g.real - abs(step)*0.8 < end and rgeq.g.real + abs(step) *0.8 > end):
-      rgeq.g = end
+  rgeqlist = []
+  while (rgeq.g != end):
+    rgeqlist.append(rgeq.copy())
+    if len(rgeqlist) > 10:
+      del(rgeqlist[0])
     if etachange == True:
-      rgeq.eta = rgeq.g/-2.
-    print 'The interaction constant is: %s ' % rgeq.g    
+      rgeq.eta = rgeq.g/-2.   
     try:
-      energierg = rgeq.solve()
-      try:
-	continuity_check(rgeq,step,conarray, energierg,crit = 1.8)
-      except DiscontinuityError as e:
-	plotenergyfile.write("# %s discontinuity : %r \n" %(str(rgeq.g),str(e)))
-	raise ValueError
+      changeg.continuitycheck(rgeq,conarray,step,end, ccrit = 1.8,pf = plotenergyfile)
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
       """
       we arrived at a critical point so now we circumvent it by making g complex.
@@ -286,28 +280,32 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
       # if you use the generating_datak wrapper probeExitedStates make sure n = 1 because it takes the difference of exited states with the groundstate and
       #if the critical points of the exited state are different in contrast to those of the ground state then you'll have noisy graphs.
       plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.g))
-      rgeq.g -= step 
+      print "# %s kritisch punt \n" %str(rgeq.g)
+      if eerstekp == False:
+	n = 2
+	complexg = [Change_G(rgeqlist[-5]).change_g({'gend': abs(rgeq.g)/100.,'gstep': abs(rgeq.g)/1000. })] #array where we save the rgeq with complex g
+        eerstekp = True
       cstep = step
       send = None
       complexstep = 1000. ; extremecp = False
-      if abs((complexg[-1].g- rgeq.g )/(step*0.01)) >= 101 :
+      if abs((complexg[-1].g- rgeq.g )/(step*0.01)) >= 101 : #check which distance is the quickest to circumvent the critical point
 	try:
 	  complexg.append( Change_G(rgeq).change_g({'gend': abs(rgeq.g)/500.,'gstep': abs(rgeq.g)/complexstep }))
 	except:
 	  print "we couldn't create a complex g at this point so we go back to the former"
       while lastkp == False:	
+        send = rgeq.g + step
 	if n > 11:
 	  send = rgeq.g +2*step
 	elif (rgeq.g.real - abs(step)*0.8 < end and rgeq.g.real + abs(step) *0.8 > end):
 	  send = end
         try:
           #make sure that you divide step by a dividor from step 
-          energierg,rgeq,rgeqsaveback = rf.littleLoop(complexg[-1],cstep/2.,n*2,complexstepd = complexstep,end = send)
+          energierg,rgeq,rgeqsaveback = rf.littleLoop(complexg[-1],cstep/4.,n*4,complexstepd = complexstep,end = send)
           complexg.append(rgeqsaveback)
-          continuity_check(rgeq,step,conarray, energierg,crit = 1.5)
+          continuity_check(rgeq,step,conarray, energierg,crit = 2.)
           lastkp = True
         except (ValueError, np.linalg.linalg.LinAlgError,DiscontinuityError) as e:
-	  savesols = True
 	  print e
 	  if abs(rgeq.g) > 1e-3:
 	    complexstep *= 2.
@@ -322,7 +320,7 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
 	    n *= 10
 	  print 'couldn\'t circumvent the critical point at g = %f, try to make the step of the interaction constant bigger in complexspace' %rgeq.g
 	  print 'circumventing a critical point at %g steps and step in complexspace is %f' %(n, complexstep)
-       
+
     finally:
       if tdafilebool is True:
 	try:
@@ -429,7 +427,7 @@ def testcircumvent():
   afhxas = 'g'
   waardeafh = 0.
   #generate seperate dir for the solved problem
-  #generate_dir('testcircumventwithlowxicomplexg3',None,None)
+  generate_dir('testjesnieuwe',None,None)
   print tdastartd
   xival = 1.
   g = -1.
@@ -465,7 +463,7 @@ def testeasysolve():
   eta =1.
   generate_dir('stefanall',None,None)
   #to calculate all the permutations of 1 1 0 0 ... so we choose out a np.arange(alevel) apair levels where we put our pairs (without repetition)
-  tdacombinations = combinations(np.arange(alevel),apair)
+  tdacombinations = combinations_with_replacement(np.arange(alevel),apair)
   onezipper = np.ones(apair)
   tdacor = open('tdacor.dat','w')
   tdacor.write('#This file contains the correspondence between the directorys and the start tda distributions \n #The first column is the directory number and on the same line is the tda start distribution written \n')
@@ -477,15 +475,20 @@ def testeasysolve():
       g = 0.0001 ; enddatak = 10. ; stepg = 0.003
     rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
     for tdadict in tdacombinations:
-      generate_dir('%g' %i,None,None) #only handy for a small amount of levels
-      #tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
-      tdastartd = dict(zip(tdadict,onezipper))
-      tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
-      print 'we start generating_datak with: ', tdastartd
-      generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
-      generate_plot(alevel,apair,waardeafh,afhxas,plotg = False)
-      os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
-      i += 1
+      tdastartd = {} ; goodsol = True
+      for j in tdadict:      
+        tdastartd[j] = tdadict.count(j)  
+        if tdastartd[j]*2 + rgeq.senioriteit[j]*2 > rgeq.ontaardingen[j]:
+	  goodsol = False
+      if goodsol == True:
+	generate_dir('%g' %i,None,None) #only handy for a small amount of levels
+	#tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
+	tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
+	print 'we start generating_datak with: ', tdastartd
+	generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
+	generate_plot(alevel,apair,waardeafh,afhxas,plotg = False)
+	os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
+	i += 1
   tdacor.close()
 
 def dangSn(filen,cutoff = 1e5):
@@ -582,8 +585,8 @@ if __name__ == "__main__":
   #test()
   #main()
   #dangmain()
-  #testcircumvent()
+  testcircumvent()
   #testeasysolve()
   #addlevel()
-  facintmain()
+  #facintmain()
   

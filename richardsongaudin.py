@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import math
 import numpy as np
-from numpy import array, zeros, ones, arange
+from numpy import array, zeros, ones, arange , copy
 from numpy import append, delete, polynomial # here are the numpy imports that are at this time 23/08/2012 not compatibel with pypy
 from scipy import optimize
+import inspect
 
 from tdasolver import *
 import newtonraphson as nr
@@ -56,13 +57,14 @@ class RichardsonEq(object):
   def set_apair(self,ap):
     self.apair = ap
  
-  def set_sj(self):
-    self.sj = 1./4.*self.ontaardingen - 1./2.*self.senioriteit
+  def getvar(self,var):
+    return dict(inspect.getmembers(self))[var]
     
   def test_goodsol(self):
     zerosd = self(self.rgsolutions) 
     print "putting the solutions of the RG variables back in the RG equations gives (needs to be zero):"
     print zerosd
+    return sum(abs(test_goodsol))
   
   def solve(self,goodguess = None,tol = 1e-11):
     if goodguess == None:
@@ -131,7 +133,7 @@ class RichRedBcs(RichardsonEq):
     
   def copy(self):
     #self made copy function because copy.deepcopy() is to damn slow
-    d = RichRedBcs(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.apair,xi = self.xi,rgsol = self.rgsolutions)
+    d = RichRedBcs(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.apair,xi = self.xi,rgsol = copy(self.rgsolutions))
     return d
 
 class RichFacInt(RichardsonEq):
@@ -223,7 +225,7 @@ class RichFacInt(RichardsonEq):
   
   def copy(self):
     #self made copy function because copy.deepcopy() is to damn slow
-    d = RichFacInt(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.eta,self.apair,xi = self.xi,rgsol = self.rgsolutions)
+    d = RichFacInt(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.eta,self.apair,xi = self.xi,rgsol = copy(self.rgsolutions))
     return d
     
 class RichardsonSolver(object):
@@ -239,7 +241,7 @@ class RichardsonSolver(object):
     elif isinstance(richeq,RichRedBcs):
       self.tda = TdaRedBcs(self.richeq.energiel,self.richeq.ontaardingen,self.richeq.g)
     self.xisolutions = []# use as [xi: (E, Rgvar), ...]
-    if self.richeq.rgsolutions != None:
+    if self.richeq.rgsolutions.dtype != 'object':
       self.set_xisolution(self.richeq.get_energy())
     self.concheck = Xi_Continuity() #see the notes of the continuity classes
     print 'we created a RichardsonSolver with following RG equations: %s' %str(self.richeq)

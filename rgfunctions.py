@@ -3,7 +3,7 @@ import numpy as np
 from numpy import ones, zeros ,array, sort,linalg,empty
 from itertools import combinations,combinations_with_replacement
 from operator import mul
-import linecache, random
+import linecache, random,copy
 
 import richardsongaudin as rg
 import writepairing as wp
@@ -79,7 +79,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     print ('distance measure g = : %s' % str(rgeq.g))
   print ('Now are we going to make g back real %s' %str(rgeq.g))
   phis /= 2.
-  rgeq2 = rgeq.copy()
+  rgeq2 = copy.deepcopy(rgeq)
   if backxi is True:
     argxi = {'xiend': xival, 'xistep': 0.01}
     print ('now we go back to xi = xival')

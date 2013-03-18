@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import ones, zeros ,array, sort,linalg,empty
+from numpy import ones, zeros ,array, sort,linalg,empty,copy
 import random,sys
 
 import richardsongaudin as rg
@@ -8,42 +8,52 @@ import rgfunctions as rf
 import plotfunctions as pf
 
 class Continuity(object): #needs to be efficiently written because it will be one of the most used functions
-  def continuitycheck(self,rgeq,carray,step,end, ccrit = 2.,pf = None):
+  def continuitycheck(self,rgeq,carray,step,end, ccrit = 1.9,pf = None):
     '''
     Increases Xi and find the new rg solutions but assure continuity
     REMARK: you can see this function as a wrapper function of both nr.solve and rgf.continuity_check
     '''
     consol = False
-    carray2 = list(carray)
     n = 1
     i = 1
     newstart = self.getvar(rgeq) ; savestep = step
-    saverg = rgeq.rgsolutions
+    saverg = copy(rgeq.rgsolutions)
     while(consol == False):
       for a in range(n):
 	self.changevar(rgeq,step)
-	consol = self.endcheck(rgeq,step,end,carray)
+	consol = self.endcheck(rgeq,step,end)
+	print self.getidstring()+ ': variable' + str(self.getvar(rgeq))
 	rgsol = rgeq.solve()	#MOST IMPORTANT STATEMENT of this function
       if not consol:
 	try:	
 	  self.continuity_check(rgeq,step,carray,rgsol, crit = ccrit)
-	except rf.DiscontinuityError as e:
-	  rgeq.rgsolutions = saverg
-	  if pf is not None:
-	    pf.write("#We arrived at a discontinuity\n")
-	  print 'Problems with continuity of the energy with chance in main_rgsolver()' ,e
+	  '''
+	  except rf.DiscontinuityError as e:
+	    rgeq.rgsolutions = saverg
+	    self.setvar(rgeq,newstart)
+	    carray2= []
+	    if pf is not None:
+	      pf.write("#We arrived at a discontinuity\n")
+	    print 'Problems with continuity of the energy with chance in main_rgsolver()' ,e	 
+	    step = savestep / 10.**i
+	    n = 10**i
+	    i += 1
+	    if n > 2000:
+	      print 'error we have discoverd a super big discontinuity in the energy when we variate xi from 0 to 1'
+	      self.setvar(rgeq,newstart)
+	      self.rgsolutions = saverg
+	      raise ValueError #so it will handled by making g complex
+	    '''
+	except (ValueError, np.linalg.linalg.LinAlgError ,rf.DiscontinuityError) as e:
+	  print 'we reached a critical point'
 	  self.setvar(rgeq,newstart)
-	  savestep /= 10.**i
-	  n = 10**i
-	  i += 1
-	  if n > 2000:
-	    print 'error we have discoverd a super big discontinuity in the energy when we variate xi from 0 to 1'
-	    raise ValueError #so it will handled by making g complex
-	else:
+	  self.rgsolutions = saverg
+	  raise ValueError
+	else: #what needs to be done if continuity check is True
 	  consol = True
     return rgsol 
     
-  def continuity_check(self,rgeq,step,arraysol, nval,crit = 1.5):
+  def continuity_check(self,rgeq,step,arraysol, nval,crit = 1.8):
     '''
     function that investigates, if the new solution: $nval forfilles the continuity criterium:
     that is that the mean difference of the previous $grootte solutions *$crit is bigger then the difference between $nval
@@ -67,7 +77,7 @@ class Continuity(object): #needs to be efficiently written because it will be on
       else:
 	raise rf.DiscontinuityError(step,crit,arraysol,nval)
   
-  def endcheck(self,rgeq,step,end,carray):
+  def endcheck(self,rgeq,step,end):
     bool = False
     if self.getvar(rgeq) +abs(step)* 0.8 >= end and self.getvar(rgeq) - abs(step) * 0.8 <= end:
       self.setvar(rgeq,end)
@@ -87,6 +97,8 @@ class Xi_Continuity(Continuity):
     rgeq.xi = var
   def getvar(self,rgeq):
     return  rgeq.xi
+  def getidstring(self):
+    return 'xi'
        
 class RG_Continuity(Continuity):
   def changevar(self,rgeq,var):
@@ -98,6 +110,8 @@ class RG_Continuity(Continuity):
       rgeq.g = var
   def getvar(self,rgeq):
     return rgeq.g.real
+  def getidstring(self):
+    return 'realpart g'
     
 class CG_Continuity(Continuity):
   def changevar(self,rgeq,var):
@@ -108,6 +122,8 @@ class CG_Continuity(Continuity):
     rgeq.g= rgeq.g.real+ 1.j*var 
   def getvar(self,rgeq):
     return rgeq.g.imag
+  def getidstring(self):
+    return 'complexpart g'
    
 class ELevel_Continuity(Continuity):
   def changevar(self,rgeq,var):
