@@ -293,8 +293,8 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
 	  complexg.append( Change_G(rgeq).change_g({'gend': abs(rgeq.g)/500.,'gstep': abs(rgeq.g)/complexstep }))
 	except:
 	  print "we couldn't create a complex g at this point so we go back to the former"
+      send = rgeq.g + step
       while lastkp == False:	
-        send = rgeq.g + step
 	if n > 11:
 	  send = rgeq.g +2*step
 	elif (rgeq.g.real - abs(step)*0.8 < end and rgeq.g.real + abs(step) *0.8 > end):
@@ -306,6 +306,7 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
           continuity_check(rgeq,step,conarray, energierg,crit = 2.)
           lastkp = True
         except (ValueError, np.linalg.linalg.LinAlgError,DiscontinuityError) as e:
+	  send += step/2.                                       
 	  print e
 	  if abs(rgeq.g) > 1e-3:
 	    complexstep *= 2.
@@ -576,7 +577,7 @@ def facintmain():
   stepg = +0.001
   afhxas = 'g'
   rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
-  generate_dir('romboutsdesolve2',None,None)
+  generate_dir('romboutsplay',None,None)
   generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
   generate_plot(alevel,apair,0.,afhxas,plotg = False)  
     
@@ -585,8 +586,8 @@ if __name__ == "__main__":
   #test()
   #main()
   #dangmain()
-  testcircumvent()
+  #testcircumvent()
   #testeasysolve()
   #addlevel()
-  #facintmain()
+  facintmain()
   

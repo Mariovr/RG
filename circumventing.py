@@ -22,29 +22,27 @@ class Continuity(object): #needs to be efficiently written because it will be on
       for a in range(n):
 	self.changevar(rgeq,step)
 	consol = self.endcheck(rgeq,step,end)
-	print self.getidstring()+ ': variable' + str(self.getvar(rgeq))
+	print self.getidstring()+ ': variable ' + str(self.getvar(rgeq)) + ' end = ' + str(end)
 	rgsol = rgeq.solve()	#MOST IMPORTANT STATEMENT of this function
       if not consol:
 	try:	
 	  self.continuity_check(rgeq,step,carray,rgsol, crit = ccrit)
-	  '''
-	  except rf.DiscontinuityError as e:
-	    rgeq.rgsolutions = saverg
+	except rf.DiscontinuityError as e:
+	  rgeq.rgsolutions = saverg
+	  self.setvar(rgeq,newstart)
+	  carray2= []
+	  if pf is not None:
+	    pf.write("#We arrived at a discontinuity\n")
+	  print 'Problems with continuity of the energy with chance in main_rgsolver()' ,e	 
+	  step = savestep / 10.**i
+	  n = 10**i
+	  i += 1
+	  if n > 2000:
+	    print 'error we have discoverd a super big discontinuity in the energy when we variate xi from 0 to 1'
 	    self.setvar(rgeq,newstart)
-	    carray2= []
-	    if pf is not None:
-	      pf.write("#We arrived at a discontinuity\n")
-	    print 'Problems with continuity of the energy with chance in main_rgsolver()' ,e	 
-	    step = savestep / 10.**i
-	    n = 10**i
-	    i += 1
-	    if n > 2000:
-	      print 'error we have discoverd a super big discontinuity in the energy when we variate xi from 0 to 1'
-	      self.setvar(rgeq,newstart)
-	      self.rgsolutions = saverg
-	      raise ValueError #so it will handled by making g complex
-	    '''
-	except (ValueError, np.linalg.linalg.LinAlgError ,rf.DiscontinuityError) as e:
+	    self.rgsolutions = saverg
+	    raise ValueError #so it will handled by making g complex
+	except (ValueError, np.linalg.linalg.LinAlgError) as e:
 	  print 'we reached a critical point'
 	  self.setvar(rgeq,newstart)
 	  self.rgsolutions = saverg
@@ -64,12 +62,15 @@ class Continuity(object): #needs to be efficiently written because it will be on
     '''
     grootte = 5
     meand = 0
+    adapdiv = 0
     if len(arraysol) < grootte:
       arraysol.append((self.getvar(rgeq),rgeq.rgsolutions,nval))
     else:
-      adapter = abs((self.getvar(rgeq) - arraysol[-1][0]) /(arraysol[-1][0]-arraysol[-2][0])) #we use this to take into account largerstepsizes
       for i in range(grootte-1): 
 	meand += abs(arraysol[i][2]- arraysol[i+1][2])
+	adapdiv += abs(arraysol[i][0]-arraysol[i+1][0])
+      adapter  = abs((self.getvar(rgeq) - arraysol[-1][0])) /(adapdiv/len(arraysol)) #we use this to take into account largerstepsizes
+      print arraysol ,adapter ,crit , meand
       verschil = abs(arraysol[-1][2] - nval)      
       if verschil < meand/(grootte-1)* crit*adapter:
 	del(arraysol[0])
@@ -154,7 +155,7 @@ class Change_G(object):
       self.richeq.g = self.richeq.g+ 1.j* abs(self.richeq.g)/(10000.*n)
       self.richeq.solve()
     while(self.concheck.getvar(self.richeq) != gend or self.richeq.g.imag == self.richeq.g.real/10.):
-      print self.richeq.g 
+      print self.richeq.g , gend
       self.concheck.continuitycheck(self.richeq,conarray,gstep/n,gend)
     print 'we changed g: %s' % str(self.richeq.g)
     return self.richeq
@@ -231,10 +232,11 @@ class Evolver(object):
       self.richeq = self.richeq_step(stepg)
       if self.richeq.g.real + abs(stepg)/2. >= endg and self.richeq.g.real - abs(stepg)/2. <= endg:
         self.richeq.g = endg
-	self.richeq.solve() ; break
+	self.richeq.solve() ;break
       print self.richeq.g
   
   def richeq_step(self,stepg= None):
+    print 'we entered richeq_step from Evolution in circumventing.py'
     if stepg is not None: 
       self.richeq.g += stepg 
     
@@ -247,14 +249,14 @@ class Evolver(object):
         for rgeq in self.lists[klist]: 
           i+= 1
           if rgeq.rgsolutions is not None:
-	    changer = {'gstep': stepg , 'gend' : self.richeq.g+stepg}
-	    changec = {'gstep': -1.*rgeq.g.imag/300. , 'gend': 0.}
+	    changer = {'gstep': stepg/10. , 'gend' : self.richeq.g+stepg}
+	    changec = {'gstep': -1.*rgeq.g.imag/100. , 'gend': 0.}
 	    changev = {'xistep': 0.01 , 'xiend': 1.}
 	    print str(rgeq) ,  changer , changec , changev
 	    try:
 	      rgeq = Change_G(rgeq, cg= False).change_g(changer)
 	      rgeq2 = rg.RichardsonSolver(rgeq).change_xi(changev)
-              self.richeq = Change_G(rgeq2).change_g(changer,20)
+              self.richeq = Change_G(rgeq2).change_g(changec,20)
               foundsol = True ;break
             except:
 	      #if i == self.nc: print 'BIG ERROR choose other or more circumventers ' ;sys.exit(1)
@@ -319,7 +321,7 @@ def main():
   stepg = +0.003
   e,rgeq = rg.RichardsonSolver(rgeq).main_solve(pd)
   tdad = rg.RichardsonSolver(rgeq).main_desolve(plotrgvarpath = True)
-  evolution = Evolver(rgeq,nxi = 3, ncg= 3)
+  evolution = Evolver(rgeq,nxi = 1, ncg= 1)
   evolution.evolve(stepg,endg)
   evolution.write_gpath(pd)
   pf.plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar',stop = None,begin = 0,istart = 3)
