@@ -576,7 +576,7 @@ def facintmain():
   stepg = 0.0001
   afhxas = 'g'
   rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
-  generate_dir('testrombouts10',None,None)
+  generate_dir('testrombouts102',None,None)
   generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool =False)
   generate_plot(alevel,apair,0.,afhxas,plotg = False)  
     
@@ -586,6 +586,6 @@ if __name__ == "__main__":
   #main()
   #dangmain()
   #testcircumvent()
-  testeasysolve()
+  #testeasysolve()
   #addlevel()
-  #facintmain()
+  facintmain()
