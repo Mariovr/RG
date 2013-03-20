@@ -24,6 +24,7 @@ class RichardsonEq(object):
     self.apair = apair_
     self.alevel = len(self.energiel)
     self.rgsolutions = rgsol
+    self.energy = None
     assert(len(self.senioriteit) == len(self.ontaardingen) == len(self.energiel))
     
   def __str__(self):
@@ -43,7 +44,7 @@ class RichardsonEq(object):
     
   def step_xi(self,step = 1e-2):
     self.xi += step 
-    #it's no use to go bigger then one and smaller the 0 because the case that interests us is xi =1
+    #it's no use to go bigger then one and smaller then 0 because the case that interests us is xi =1
     if self.xi > 1.:
       self.xi = 1.
     if self.xi < 0.:
@@ -56,7 +57,19 @@ class RichardsonEq(object):
     self.apair = ap
  
   def getvar(self,var):
+    #handy to create general programs
     return dict(inspect.getmembers(self))[var]
+  
+  def setvar(self,var,val):
+    if var == 'g':
+      self.g = val
+    elif var == 'eta':
+      assert(isinstance(self,RichFacInt))
+      self.eta = val
+    elif var == 'xi':
+      self.xi = val
+    else:
+      print 'val is not a member of RichardsonEq'
     
   def test_goodsol(self):
     zerosd = self(self.rgsolutions) 
@@ -69,8 +82,8 @@ class RichardsonEq(object):
       self.rgsolutions = nr.solve(self,self.rgsolutions ,tol = tol)
     else:
       self.rgsolutions = nr. solve(self,goodguess,tol = tol)
-    
-    return self.get_energy()
+    self.energy = self.get_energy()
+    return self.energy
 
     
 class RichRedBcs(RichardsonEq):
@@ -130,6 +143,7 @@ class RichRedBcs(RichardsonEq):
   def copy(self):
     #self made copy function because copy.deepcopy() is to damn slow
     d = RichRedBcs(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.apair,xi = self.xi,rgsol = copy(self.rgsolutions))
+    d.energy = self.energy
     return d
 
 class RichFacInt(RichardsonEq):
@@ -142,8 +156,8 @@ class RichFacInt(RichardsonEq):
     the start of a general Richardson-Gaudin problem, with XI set in the initialisation to a value that is a bit larger than zero
     (XI = zero corresponds to the tda approximation, XI = one corresponds to the pairing problem that we need to solve)
     """
+    self.eta = eta_ #make sure you set first the not inherited variables because the initialisation function of RichardsonEq contains solve and that function makes use of all the variables 
     super(RichFacInt,self).__init__(energiel_,ontaard_,senior_, koppelingsconstante,apair_ ,xi = xi,rgsol = rgsol)
-    self.eta = eta_ 
   
   def __call__(self,x):
     rgfunc = zeros(self.apair,complex)
@@ -222,6 +236,7 @@ class RichFacInt(RichardsonEq):
   def copy(self):
     #self made copy function because copy.deepcopy() is to damn slow
     d = RichFacInt(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.eta,self.apair,xi = self.xi,rgsol = copy(self.rgsolutions))
+    d.energy = self.energy
     return d
     
 class RichardsonSolver(object):
@@ -335,7 +350,7 @@ class RichardsonSolver(object):
 	rgsol = self.richeq.solve()	#MOST IMPORTANT STATEMENT of this function
       if rgsol == None: #to circumvent the special case that rgsol is None (sum(rgsol.real)) so the ValueError get's catched by wrappers of rg_mainsolver
 	raise ValueError
-      if not rgf.continuity_check(carray2,self.richeq.get_energy() ,crit = 1.5):
+      if not rgf.continuity_check(carray2,self.richeq ,crit = 1.5):
 	self.richeq.rgsolutions = rgsolsave
 	print 'Problems with continuity of the energy with changing xi in main_rgsolver()' 
 	self.richeq.xi = xinewstart

@@ -59,7 +59,7 @@ class Change_G(object):
     
   
    
-def littleLoop(rgeqs,stepg,n,complexstepd = 10000,end = None,backxi = False,xival = 1. , pairingdtje = None):
+def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival = 1. , pairingdtje = None ,dvar = 'g'):
   '''
   function makes the interaction constant complex in order to circumvent a critical point
   it makes a little loop around the critical point after the execution we have a rg solution one stepg further
@@ -70,18 +70,19 @@ def littleLoop(rgeqs,stepg,n,complexstepd = 10000,end = None,backxi = False,xiva
   netto with one step of the interaction constant of the wrapper function that calls this function.
   2) to go from a start interactionconstant 
   '''
-  rgeq = copy.deepcopy(rgeqs)
   if rgeq.rgsolutions is None:
     energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdtje, xival = xival)
   print ('######################################')
-  print ('Making g complex to circumvent a critical point on g = %f and n = %g ' %(rgeq.g , n))
+  print ('Making g complex to circumvent a critical point on g = %s and n = %g ' %(str(rgeq.g) , n))
   print ('######################################')
   phi = abs(rgeq.g)/(1000.*n)
   if end == None:
     crit = abs(rgeq.g)/100.*n/2.
+    if n > 100:
+      crit /= 100
     phis = abs(rgeq.g)/complexstepd #step of phi the complex variable
   else:
-    crit = abs((rgeq.g+end)/10.)/10.*n/2.
+    crit = abs((rgeq.g+end)/10.)/10.*n/5.
     n = int(abs(end-rgeq.g)/abs(stepg)) + 1
     phis = abs(rgeq.g+end)/complexstepd #step of phi the complex variable
   assert(rgeq.rgsolutions is not None)
@@ -110,14 +111,14 @@ def littleLoop(rgeqs,stepg,n,complexstepd = 10000,end = None,backxi = False,xiva
       saverg1 = saverg2
       saverg2 = rgeq.rgsolutions
       rgeq.rgsolutions += saverg2-saverg1
-    rgeq.g += stepg
+    rgeq.setvar(dvar,rgeq.getvar(dvar) + stepg)
     if end is not None:
-      if rgeq.g.real - abs(stepg) < end and rgeq.g.real + abs(stepg) > end:
-        rgeq.g = end + 1.j *phi
+      if (rgeq.getvar(dvar).real < end and stepg < 0) or (rgeq.getvar(dvar).real > end and stepg > 0):
+	rgeq.setvar(dvar,end)   
     energierg = rgeq.solve() 
     if end is not None and rgeq.g.real == end:
       break
-    print ('distance measure g = : %s' % str(rgeq.g))
+    print 'The variable we change in littleLoop : %s is: %s ' %(dvar ,str(rgeq.getvar(dvar)))
   print ('Now are we going to make g back real %s' %str(rgeq.g))
   phis /= 2.
   rgeq2 = copy.deepcopy(rgeq)
@@ -307,7 +308,7 @@ def get_npair(deg,occ):
   
 def wd_processing(wd2,nlev,npair,waarden):
   """
-  function that keeps only the sp levels En such that E0 + WD2 > En
+  function that keeps only the sp levels E_n such that E0 + WD2 > En
   nlev = number of energylevels , npair = number of pairs, waarden = energylevels, wd2 = upper boundary energylevels
   #REMARK this wd2 definition is not physical we need to write another function that defines wd2 around
   the Fermilevel (not only the amount of levels in the interaction band changes but also the amount of pairs need to change then
@@ -648,7 +649,7 @@ def readrgvars(g, name = 'rgvar.dat'):
   ref.close()
   return rgvars
   
-def continuity_check(arraysol, nval,crit = 2.):
+def continuity_check(arraysol, rgeq,crit = 1.9,dvar = 'g'):
   '''
   function that investigates, if the new solution: $nval forfilles the continuity criterium:
   that is that the mean difference of the previous $grootte solutions *$crit is bigger then the difference between $nval
@@ -657,18 +658,19 @@ def continuity_check(arraysol, nval,crit = 2.):
   REMARK: Very important function for (generating_datak) to check if there is no jump to an excited state.
   '''
   grootte = 5
-  meand = 0
+  meand = 0 ; adapter = 0 # adapter adapts for bigger steps (important around critical points)
   con = True
   if len(arraysol) < grootte:
-    arraysol.append(nval)
+    arraysol.append(rgeq.copy())
   else:
     for i in range(grootte-1): 
-      meand += abs(arraysol[i]- arraysol[i+1])
-    verschil = abs(arraysol[-1] - nval)
-    
-    if verschil < meand/(grootte-1)* crit:
+      adapter += abs(arraysol[i].getvar(dvar)- arraysol[i+1].getvar(dvar)) 
+      meand += abs(arraysol[i].energy - arraysol[i+1].energy)
+    verschil = abs(arraysol[-1].energy - rgeq.energy)
+    adapter = abs(arraysol[-1].getvar(dvar) - rgeq.getvar(dvar))/adapter
+    if verschil < meand* crit/(grootte-1) *(adapter*(grootte-1))**1.5: #REMARK 1/(grootte-1) of mean difference but also * (grootte-1) because of adapter
       del(arraysol[0])
-      arraysol.append(nval)
+      arraysol.append(rgeq.copy())
     else:
       con = False
   return con  

@@ -238,7 +238,7 @@ def generating_data(infilename,typint,eta,koppelingsconstante,afhw,npair,nlevels
     plotrgvars(rgeq.apair,ref = namepf,afhvar = afhxas,namerg = 'rgvar%f%s' %(koppelingsconstante,exname),istart = 6 )
   ifile.close()
 
-def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False ):
+def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False):
   conarray = [] # array that is used to check continuity
   plotenergyfile = open("plotenergy%s.dat" %exname,"w") #opening of the file that's going to contain the results
   if tdafilebool is True:
@@ -253,7 +253,7 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
     os.chdir(dir) #change to the moviedirectory   
   d = rf.calculated(rgeq.energiel,rgeq.ontaardingen)  #Calculation of the mean distance between the used sp levels
   bb = rf.calcnintgrondtoestand(rgeq.apair, rgeq.energiel,rgeq.ontaardingen,rgeq.senioriteit) 
-  rf.info_1set(plotenergyfile,str(rgeq) , exinfo = "#at (afh = %s) d = %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(afhxas, d,bb),tdadict = pairingd)
+  rf.info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is %s d = %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
   lastkp = False #boolean to know if the last g value circumvented a critical point
   #if rgeq.rgsolutions is None we haven't determined any rg variables so the first solution has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
@@ -261,17 +261,15 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
   if rgeq.rgsolutions is None: 
     energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival)   
   rgeqsaveback = copy.deepcopy(rgeq)
-  while (rgeq.g != end ):  
-    rgeq.g = rgeq.g + step
-    print 'The interaction constant is: %s ' % str(rgeq.g)
-    if (rgeq.g < end and step < 0) or (rgeq.g > end and step > 0):
-      rgeq.g = end    
-      conarray = []
+  while (rgeq.getvar(dvar) != end ):  
+    rgeq.setvar(dvar,rgeq.getvar(dvar) + step)
+    if (rgeq.getvar(dvar)- abs(step)/2. < end and rgeq.getvar(dvar) + abs(step)/2. > end):
+      rgeq.setvar(dvar,end)    
+    print 'The variable we change: %s is: %s ' %(dvar ,str(rgeq.getvar(dvar)))
     try:
-      rgvarsave = rgeq.rgsolutions
       energierg = rgeq.solve()
-      if not rf.continuity_check(conarray, energierg,crit = 1.5):
-	rgeq.rgsolutions = rgvarsave
+      if not rf.continuity_check(conarray, rgeq,crit = 1.5,dvar = dvar):
+	rgeq = conarray[-1]
 	raise ValueError
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
       """
@@ -281,45 +279,42 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
       n = 1 #integer that determines how many steps g need to increase to circumvent the critical point
       # if you use the generating_datak wrapper probeExitedStates make sure n = 1 because it takes the difference of exited states with the groundstate and
       #if the critical points of the exited state are different in contrast to those of the ground state then you'll have noisy graphs.
-      plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.g))
-      rgeq.g -= step
+      plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.getvar(dvar)))
       savestep = step
       send = None
       complexstep = 10000 ; extremecp = False
       while lastkp == False:	
 	if n > 1:
 	  step += step /3.
-	  conarray = []
-	elif (rgeq.g - abs(step)*1.5 < end and rgeq.g + abs(step) *1.5 > end):
+	elif (rgeq.getvar(dvar) - abs(step)*1.5 < end and rgeq.getvar(dvar) + abs(step) *1.5 > end):
 	  send = end
         try:
           #make sure that you divide step by a dividor from step 
-          savergeq = copy.deepcopy(rgeq)
-          energierg,rgeq,r = rf.littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send)
-          if not rf.continuity_check(conarray, energierg,crit = 1.5):
-	    rgeq.rgsolutions = rgvarsave
+          savergeq = rgeq.copy()
+          energierg,rgeq,rgeqsaveback = rf.littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
+          if not rf.continuity_check(conarray, rgeq,crit = 1.5,dvar = dvar):
 	    raise ValueError
           lastkp = True
           step = savestep
         except (ValueError, np.linalg.linalg.LinAlgError) as e:
 	  rgeq = savergeq
-	  if abs(rgeq.g) > 1e-3:
+	  if abs(rgeq.getvar(dvar)) > 1e-3:
 	    complexstep *= 2.
 	  else:
 	    complexstep /= 10.
-	  if rgeq.g - abs(step)*1.5 < end and rgeq.g + abs(step) *1.5 > end:
+	  if rgeq.getvar(dvar) - abs(step)*1.5 < end and rgeq.getvar(dvar) + abs(step) *1.5 > end:
 	    step /= 2.	    
 	    if abs(step) < 1e-7:
 	      n = 100000
 	  else:  
 	    step /= 10.
 	    n *= 10
-	  print 'couldn\'t circumvent the critical point at g = %f, try to make the step of the interaction constant bigger in complexspace' %rgeq.g
+	  print 'couldn\'t circumvent the critical point at %s = %f, try to make the step of the interaction constant bigger in complexspace' %(dvar,rgeq.getvar(dvar))
 	  print 'circumventing a critical point at %g steps and step in complexspace is %f' %(n, complexstep)
 	  if n > 1000:
-	    send = rgeq.g+2*step
+	    send = rgeq.getvar(dvar)+2*step
 	    complexstep = 100000
-	    energierg,rgeq, rgeqsaveback = rf.littleLoop(rgeqsaveback,savestep*100,2.,complexstepd = complexstep,end = send)
+	    energierg,rgeq, rgeqsaveback = rf.littleLoop(rgeqsaveback,savestep*100,2.,complexstepd = complexstep,end = send,dvar = dvar)
             lastkp = True
             step = savestep        
     finally:
@@ -329,9 +324,9 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
 	  tdafile.write('%f\t%s\n'  %(rgeq.g,' '.join(map(str,pairingdict))))
         except (ValueError, np.linalg.linalg.LinAlgError,NameError) as e:
 	  print 'problem in going back in xispace to xi = o to determine the corresponding tdadistribution'
-	  tdafile.write('#%f\t%s\n'  %(rgeq.g,'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
+	  tdafile.write('#%f\t%s\n'  %(rgeq.getvar(dvar),'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
       	  
-    plotenergyfile.write("%f\t%f\t%f" %(rgeq.g, energierg-bb, energierg)) 
+    plotenergyfile.write("%f\t%f\t%f" %(rgeq.getvar(dvar), energierg-bb, energierg)) 
     if rgwrite is True:
       for i in range(rgeq.apair):
 	plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].real ))
@@ -346,7 +341,7 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
       rf.makemovie()
     os.chdir(olddir) #because we were in the movie dir but we want our other plots in the parentdir
   if rgwrite == True:
-    plotrgvars(rgeq.apair, ref = "plotenergy%s.dat" %exname, afhvar = 'g',namerg = 'rgvar%s' %exname,istart = 3) 
+    plotrgvars(rgeq.apair, ref = "plotenergy%s.dat" %exname, afhvar = dvar,namerg = 'rgvar%s' %exname,istart = 3) 
   return energierg,rgeq  
     
 def probeLowestExitedStates(dirname,infilename,rgeq,pairingd,afhxas,step,ende,rgw,mov,tdaf) :
@@ -572,13 +567,13 @@ def facintmain():
   eta = 1.
   tdastartd = {}
   tdastartd = {0:10,1:0,2:0}
-  enddatak = -0.0001
-  stepg = 0.0001
-  afhxas = 'g'
+  enddatak = 0.0001
+  stepg = -0.0001
+  dvar = 'eta'
   rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
-  generate_dir('testrombouts102',None,None)
-  generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool =False)
-  generate_plot(alevel,apair,0.,afhxas,plotg = False)  
+  generate_dir('eta=0',None,None)
+  generating_datak(rgeq,tdastartd,dvar,stepg,enddatak ,rgwrite = True,exname = '',moviede =False,tdafilebool =False)
+  generate_plot(alevel,apair,0.,dvar,plotg = False)  
     
     
 if __name__ == "__main__":
