@@ -668,7 +668,7 @@ def continuity_check(arraysol, rgeq,crit = 1.9,dvar = 'g'):
       meand += abs(arraysol[i].energy - arraysol[i+1].energy)
     verschil = abs(arraysol[-1].energy - rgeq.energy)
     adapter = abs(arraysol[-1].getvar(dvar) - rgeq.getvar(dvar))/adapter
-    if verschil < meand* crit/(grootte-1) *(adapter*(grootte-1))**1.5: #REMARK 1/(grootte-1) of mean difference but also * (grootte-1) because of adapter
+    if verschil < meand* crit/(grootte-1) *(adapter*(grootte-1))**1.8: #REMARK 1/(grootte-1) of mean difference but also * (grootte-1) because of adapter
       del(arraysol[0])
       arraysol.append(rgeq.copy())
     else:

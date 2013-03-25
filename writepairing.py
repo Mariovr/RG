@@ -260,16 +260,15 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
   #start from the previous solution if the stepwidth of the dependent variable of the file is low enough (WATCH OUT for critical points)
   if rgeq.rgsolutions is None: 
     energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival)   
-  rgeqsaveback = copy.deepcopy(rgeq)
+  rgeqsaveback = None
   while (rgeq.getvar(dvar) != end ):  
     rgeq.setvar(dvar,rgeq.getvar(dvar) + step)
-    if (rgeq.getvar(dvar)- abs(step)/2. < end and rgeq.getvar(dvar) + abs(step)/2. > end):
+    if (rgeq.getvar(dvar)- abs(step)*0.8 < end and rgeq.getvar(dvar) + abs(step)*0.8 > end):
       rgeq.setvar(dvar,end)    
     print 'The variable we change: %s is: %s ' %(dvar ,str(rgeq.getvar(dvar)))
     try:
       energierg = rgeq.solve()
-      if not rf.continuity_check(conarray, rgeq,crit = 1.5,dvar = dvar):
-	rgeq = conarray[-1]
+      if not rf.continuity_check(conarray, rgeq,crit = 1.8,dvar = dvar):
 	raise ValueError
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
       """
@@ -291,7 +290,17 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
         try:
           #make sure that you divide step by a dividor from step 
           savergeq = rgeq.copy()
-          energierg,rgeq,rgeqsaveback = rf.littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
+          if rgeqsaveback == None:
+	    send = rgeq.getvar(dvar) + savestep
+	    energierg,rgeq,rgeqsaveback = rf.littleLoop(conarray[-2].copy(),step/10.,n*10,complexstepd = complexstep,end = send,dvar = dvar)
+	  elif n < 1000:  
+            energierg,rgeq,rgeqsaveback = rf.littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
+          elif n > 1000:
+	    send = rgeq.getvar(dvar)+ savestep+savestep/2.
+	    complexstep = 100000
+	    energierg,rgeq, rgeqsaveback = rf.littleLoop(rgeqsaveback,savestep*10,2.,complexstepd = complexstep,end = send,dvar = dvar)
+            lastkp = True
+            step = savestep 
           if not rf.continuity_check(conarray, rgeq,crit = 1.5,dvar = dvar):
 	    raise ValueError
           lastkp = True
@@ -310,18 +319,12 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
 	    step /= 10.
 	    n *= 10
 	  print 'couldn\'t circumvent the critical point at %s = %f, try to make the step of the interaction constant bigger in complexspace' %(dvar,rgeq.getvar(dvar))
-	  print 'circumventing a critical point at %g steps and step in complexspace is %f' %(n, complexstep)
-	  if n > 1000:
-	    send = rgeq.getvar(dvar)+2*step
-	    complexstep = 100000
-	    energierg,rgeq, rgeqsaveback = rf.littleLoop(rgeqsaveback,savestep*100,2.,complexstepd = complexstep,end = send,dvar = dvar)
-            lastkp = True
-            step = savestep        
+	  print 'circumventing a critical point at %g steps and step in complexspace is %f' %(n, complexstep)       
     finally:
       if tdafilebool is True:
 	try:
 	  pairingdict  =  rg.RichardsonSolver(rgeq).main_desolve(xistep = -0.01,rgwrite = tdafilebool, plotrgvarpath = moviede,plotepath = False)
-	  tdafile.write('%f\t%s\n'  %(rgeq.g,' '.join(map(str,pairingdict))))
+	  tdafile.write('%f\t%s\n'  %(rgeq.getvar(dvar),' '.join(map(str,pairingdict))))
         except (ValueError, np.linalg.linalg.LinAlgError,NameError) as e:
 	  print 'problem in going back in xispace to xi = o to determine the corresponding tdadistribution'
 	  tdafile.write('#%f\t%s\n'  %(rgeq.getvar(dvar),'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
@@ -456,7 +459,7 @@ def testeasysolve():
   afhxas = 'g'
   waardeafh = 0.
   eta =1.
-  generate_dir('romboutsprob',None,None)
+  generate_dir('romboutstest',None,None)
   #to calculate all the permutations of 1 1 0 0 ... so we choose out a np.arange(alevel) apair levels where we put our pairs (without repetition)
   tdacombinations = combinations_with_replacement(np.arange(alevel),apair)
   onezipper = np.ones(apair)
@@ -479,7 +482,7 @@ def testeasysolve():
 	  goodsol = False
       if goodsol == False:
 	continue
-      if i > -1:
+      if i > 691:
 	generate_dir('%g' %i,None,None) #only handy for a small amount of levels
 	#tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
 	tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
@@ -487,7 +490,7 @@ def testeasysolve():
 	generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
 	generate_plot(alevel,apair,waardeafh,afhxas,plotg = False)
 	os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
-        i += 1
+      i += 1
     tdacor.close()
 
 def dangSn(filen,cutoff = 1e5):
@@ -567,20 +570,19 @@ def facintmain():
   eta = 1.
   tdastartd = {}
   tdastartd = {0:10,1:0,2:0}
-  enddatak = 0.0001
-  stepg = -0.0001
-  dvar = 'eta'
+  enddatak = -0.0002
+  stepg = 0.0001
+  dvar = 'g'
   rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
-  generate_dir('eta=0',None,None)
-  generating_datak(rgeq,tdastartd,dvar,stepg,enddatak ,rgwrite = True,exname = '',moviede =False,tdafilebool =False)
+  generate_dir('stefantda',None,None)
+  generating_datak(rgeq,tdastartd,dvar,stepg,enddatak ,rgwrite = True,exname = '',moviede =True,tdafilebool = True)
   generate_plot(alevel,apair,0.,dvar,plotg = False)  
-    
-    
+
 if __name__ == "__main__":
   #test()
   #main()
   #dangmain()
   #testcircumvent()
-  #testeasysolve()
+  testeasysolve()
   #addlevel()
-  facintmain()
+  #facintmain()

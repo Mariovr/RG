@@ -424,7 +424,10 @@ class RichardsonSolver(object):
     pl.title('Richardson-Gaudin variables at g = %f (xi in [0,1])' %(self.richeq.g))
     if xlim != None: pl.xlim((singularitys[0]-(singularitys[-1]-singularitys[0])/2.,singularitys[-1]+(singularitys[-1]-singularitys[0])/2.))
     if ylim != None: pl.ylim(ylim)
-    pl.savefig('%s%f.png' %(xiname,self.richeq.g ))
+    plotname = '%s%f' %(xiname,self.richeq.g )
+    if isinstance(self.richeq,RichFacInt):
+      plotname += str(self.richeq.eta)
+    pl.savefig(plotname+'.png')
     pl.close()
     
   def plotexi(self,xiname = 'exipath'):
@@ -450,7 +453,7 @@ class RichardsonSolver(object):
     if isinstance(self.richeq,RichRedBcs):
       rgsol = self.richeq.solve() ; self.set_xisolution(rgsol)
     else :
-      rgsol = self.richeq.solve(tol = 1e-6) ; self.set_xisolution(rgsol)
+      rgsol = self.richeq.solve(tol = 1e-4) ; self.set_xisolution(rgsol)
     if rgwrite: self.writexipath()
     if plotrgvarpath: self.plotrgvarsxi(xlim = xlim , ylim = ylim)
     if plotepath: self.plotexi()
