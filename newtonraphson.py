@@ -59,7 +59,7 @@ def gaussPivot(a,b,tol=1.0e-9):
 
 
 
-def solve(f,x , tol=1.0e-10):
+def solve(f,x , tol=1.0e-14):
   """
   newton-raphson method for a system of nonlineair equations.
   f is the system

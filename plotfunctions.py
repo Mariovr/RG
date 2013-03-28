@@ -28,10 +28,9 @@ def plot_2col(name,tit = 'title',xname = 'independendvar',yname = 'dependendvar'
   pl.close()
   
   
-def generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = True):
+def generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False):
   """
-  some nice plots to visualize the data with matplotlib, plotg = true if you plot the energylevels of the reduced
-  BCS Hamiltonian of the sp levels of a geometry file
+  some nice plots to visualize the data with matplotlib, plotg = true if you plot the energylevels of the sp levels of a geometry file
   """
   print ('start with the generation of plots')
   plotdata = open(name, 'r')
@@ -54,39 +53,24 @@ def generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = True)
     except:
       pass
     ##cc.append(float(data[2])) 
+  #plot of groundstate energy
   pl.figure()
   pl.plot(aa,bb,'r')
-  if plotg: 
-    pl.xlabel(afhxas)
-    pl.ylabel('condensation energy (a.u.)')
-    pl.title('interaction constant = %f (a.u.)' %(dvar))
-    pl.savefig('c%s.png' %name )
-    pl.close()
-  else:
-    pl.xlabel('g (a.u.)')
-    pl.ylabel('condensation energy (a.u.)')
-    pl.title('%s = %f (a.u.)' %(afhxas,dvar))
-    pl.savefig('c%s.png' %name )
-    pl.close()
-
+  pl.xlabel(dvar+' (a.u.)')
+  pl.ylabel('condensation energy (a.u.)')
+  pl.savefig('c%s.png' %name )
+  pl.close()
+  #plot of condensation energy
   pl.figure()
   pl.plot(aa,cc,'r')
-  if plotg:
-    pl.xlabel(afhxas)
-    pl.ylabel('energy spectrum (a.u.)')
-    pl.title('interaction constant = %f (a.u.)' %(dvar))
-    pl.savefig('g%s.png' %name)
-    pl.close()
-  else:
-    pl.xlabel('g (a.u.)')
-    pl.ylabel('groundstate energy (a.u.)')
-    pl.title('%s = %f (a.u.)' %(afhxas,dvar))
-    pl.savefig('g%s.png' %name ) 
-    pl.close()
+  pl.xlabel(dvar+' (a.u.)')
+  pl.ylabel('energy (a.u.)')
+  pl.savefig('g%s.png' %name)
+  pl.close()
   if plotg:
     pl.figure()
     pl.plot(aa,dd,'r')
-    pl.xlabel(afhxas)
+    pl.xlabel(dvar)
     pl.ylabel('energy of the non-interacting groundstate (a.u.)')
     pl.title('aantal paren = %f' %(npair))
     pl.savefig('nig%s.png' %name)
@@ -94,7 +78,7 @@ def generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = True)
     pl.figure()
     try:
       pl.plot(aa,ee)
-      pl.xlabel(afhxas)
+      pl.xlabel(dvar)
       pl.ylabel("d (a.u.)")
       pl.title("number of sp levels = %f" %nlevel)
       pl.savefig("%sd.png" % 'meanleveldistance')
@@ -183,7 +167,7 @@ def plotrgcloud(name,npair,g,sen):
   pl.savefig('%s%s.png' %(namerg,sen ))
   pl.close()
 
-def generatePlotExited(nlevel,npair,afh,afhxas):
+def generatePlotExited(nlevel,npair):
   """
   some nice plots to visualize the data with matplotlib
   """
@@ -248,12 +232,10 @@ def generatePlotExited(nlevel,npair,afh,afhxas):
   pl.figure(1)
   pl.xlabel('g(a.u.)')
   pl.ylabel('the condensation energy spectrum (a.u.)')
-  pl.title('dependend value = %f (a.u.)' %(afh))
   pl.savefig('condensation energy spectrum.png' )
   pl.figure(2)
   pl.xlabel('g(a.u.)')
   pl.ylabel('the energyspectrum (a.u.)')
-  pl.title('dependend value = %f (a.u.)' %(afh))
   pl.savefig('spectrum.png')
   pl.figure(3)
   pl.xlabel('g (a.u.)')

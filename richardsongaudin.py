@@ -3,7 +3,6 @@ import math
 import numpy as np
 from numpy import array, zeros, ones, arange,copy
 from numpy import append, delete, polynomial # here are the numpy imports that are at this time 23/08/2012 not compatibel with pypy
-import inspect
 
 from tdasolver import *
 import newtonraphson as nr
@@ -35,7 +34,8 @@ class RichardsonEq(object):
 #the solutions of the set of equations %s
 #the interaction constant: %s
 #the number of pairs: %s, the xivalue: %s
-''' %(str(self.energiel).translate(None,'\n'),str(self.ontaardingen).translate(None,'\n'),str(self.senioriteit).translate(None,'\n'),str(self.rgsolutions).translate(None,'\n'),str(self.g),str(self.apair),str(self.xi))
+#the total energy is: %s
+''' %(str(self.energiel).translate(None,'\n'),str(self.ontaardingen).translate(None,'\n'),str(self.senioriteit).translate(None,'\n'),str(self.rgsolutions).translate(None,'\n'),str(self.g),str(self.apair),str(self.xi),str(self.energy))
 
     return stringrep
   
@@ -58,18 +58,10 @@ class RichardsonEq(object):
  
   def getvar(self,var):
     #handy to create general programs
-    return dict(inspect.getmembers(self))[var]
+    return getattr(self,var)
   
   def setvar(self,var,val):
-    if var == 'g':
-      self.g = val
-    elif var == 'eta':
-      assert(isinstance(self,RichFacInt))
-      self.eta = val
-    elif var == 'xi':
-      self.xi = val
-    else:
-      print 'val is not a member of RichardsonEq'
+    setattr(self,var,val)
     
   def test_goodsol(self):
     zerosd = self(self.rgsolutions) 
@@ -77,7 +69,7 @@ class RichardsonEq(object):
     print zerosd
     return sum(abs(test_goodsol))
   
-  def solve(self,goodguess = None,tol = 1e-11):
+  def solve(self,goodguess = None,tol = 1e-10):
     if goodguess == None:
       self.rgsolutions = nr.solve(self,self.rgsolutions ,tol = tol)
     else:
@@ -310,7 +302,7 @@ class RichardsonSolver(object):
     self.tda.tdadict = tdadict
     return tdadict
     
-  def change_xi(self,xiarg,crit = 2.):
+  def change_xi(self,xiarg,crit = 1.6):
     '''
     function that changes the Xi value of an rgequation such as xiarg defines
     the xiarg argument is a dictionary that contains: three keys: 'xibegin','xiend','xistep' it's meaning should be obvious
@@ -324,19 +316,18 @@ class RichardsonSolver(object):
     conarray = []
     while(self.richeq.xi != xiend):
       print 'xi', self.richeq.xi 
-      rgsol = self.assurecontinuity(conarray,xistep,xiend)
+      rgsol = self.assurecontinuity(conarray,xistep,xiend,crit)
       self.set_xisolution(rgsol) 
     print 'xi is now %f' %self.richeq.xi
     print 'energy is: %f' %rgsol
     return self.richeq
     
-  def assurecontinuity(self,carray,xis,xiend):
+  def assurecontinuity(self,carray,xis,xiend,crit):
     '''
     Increases Xi and find the new rg solutions but assure continuity
     REMARK: you can see this function as a wrapper function of both nr.solve and rgf.continuity_check
     '''
     consol = False
-    carray2 = list(carray)
     n = 1
     i = 1
     xinewstart = self.richeq.xi
@@ -346,11 +337,15 @@ class RichardsonSolver(object):
 	self.richeq.xi += xis
 	if self.richeq.xi+abs(xis)/2. >= xiend and self.richeq.xi - abs(xis)/2. <= xiend:
 	  self.richeq.xi = xiend
-	  conarray = []
-	rgsol = self.richeq.solve()	#MOST IMPORTANT STATEMENT of this function
+	  carray = []
+	try:
+	  rgsol = self.richeq.solve()	#MOST IMPORTANT STATEMENT of this function
+	except (ValueError, np.linalg.linalg.LinAlgError) as e:
+	  print e
+	  rgsol = self.circumvent(xis)
       if rgsol == None: #to circumvent the special case that rgsol is None (sum(rgsol.real)) so the ValueError get's catched by wrappers of rg_mainsolver
 	raise ValueError
-      if not rgf.continuity_check(carray2,self.richeq ,crit = 1.5):
+      if not rgf.continuity_check(carray,self.richeq ,crit = crit,dvar = 'xi'):
 	self.richeq.rgsolutions = rgsolsave
 	print 'Problems with continuity of the energy with changing xi in main_rgsolver()' 
 	self.richeq.xi = xinewstart
@@ -359,19 +354,26 @@ class RichardsonSolver(object):
 	i += 1
 	if n > 201:
 	  print 'error we have discoverd a discontinuity in the energy when we variate xi from 0 to 1'
-	  sys.exit()
+	  raise ValueError
       else:
 	consol = True	
+      
     return rgsol 
   
   def circumvent(self,xistep):
     print 'error by changing xi we try to circumvent the problem regio' #TODO make this function more stable and flexible this is just a quick hack
     self.richeq.rgsolutions = self.xisolutions[-1][2]
     self.richeq.xi -= xistep
-    self.richeq.g += 1.j *abs(self.richeq.g.real)/100.
-    self.richeq.solve()
-    self.richeq.xi += xistep
-    self.richeq.solve()
+    gstep = 1.j *abs(self.richeq.g.real)/1000.   
+    for i in xrange(50):
+      self.richeq.g += gstep
+      self.richeq.solve()
+    for i in xrange(100):
+      self.richeq.xi += xistep/100.
+      self.richeq.solve()
+    for i in xrange(50):
+      self.richeq.g -= gstep
+      self.richeq.solve()
     self.richeq.g = self.richeq.g.real
     rgsol = self.richeq.solve()
     assert(isinstance(self.richeq.g,float))
@@ -406,11 +408,11 @@ class RichardsonSolver(object):
     sorted(self.xisolutions , key = lambda opl : opl[0])
     for i in range(self.richeq.apair):
       try:
-        pl.plot(self.xisolutions[0][2][i].real,self.xisolutions[0][2][i].imag,'g.', markersize = 10)
+        pl.plot(self.xisolutions[0][2][i].real,self.xisolutions[0][2][i].imag,'r.', mfc = 'None' , markersize = 10)
       except KeyError:
 	print 'We havent determined the RG solutions with xi =1 yet'
       try:
-        pl.plot(self.xisolutions[-1][2][i].real,self.xisolutions[-1][2][i].imag,'r.',mfc = 'None', markersize = 10)
+        pl.plot(self.xisolutions[-1][2][i].real,self.xisolutions[-1][2][i].imag,'g.', markersize = 10)
       except KeyError:
 	print 'the tdasolutions are not yet determined with change_xi'
     for i in range(self.richeq.apair):
@@ -426,7 +428,7 @@ class RichardsonSolver(object):
     if ylim != None: pl.ylim(ylim)
     plotname = '%s%f' %(xiname,self.richeq.g )
     if isinstance(self.richeq,RichFacInt):
-      plotname += str(self.richeq.eta)
+      plotname += 'eta:'+str(self.richeq.eta)
     pl.savefig(plotname+'.png')
     pl.close()
     
@@ -447,7 +449,8 @@ class RichardsonSolver(object):
       
   def main_desolve(self,xistep = -0.01,rgwrite = False,plotrgvarpath = False,plotepath = False,xlim = None, ylim = None,xiend = 0.):
     assert(xistep < 0)
-    xiarg = {'xiend' : 1e-6, 'xistep' : xistep}
+    xiarg = {'xiend' : 1e-6, 'xistep' : xistep} 
+    error = False
     self.change_xi(xiarg)
     self.richeq.xi = 0. ; print 'xi', self.richeq.xi
     if isinstance(self.richeq,RichRedBcs):
@@ -462,13 +465,15 @@ class RichardsonSolver(object):
   def main_solve(self,tdadict,xistep = 0.01,xival = 1.,ccrit = 2.,rgwrite = False,plotrgvarpath = False , plotepath = False,xlim = None, ylim = None):
     print 'we entered main_solve'
     assert(xistep > 0 and sum(tdadict.values()) == self.richeq.apair), str(xistep)+str( self.richeq.apair)
+    error = False
     self.richeq.xi = 5.992003000000000027e-6
     xiarg = {'xiend' : xival , 'xistep' : xistep}
-    self.richeq.solve(self.richeq.near_tda(self.get_tda(tdadict),tdadict))
+    rgsol = self.richeq.solve(self.richeq.near_tda(self.get_tda(tdadict),tdadict)) ; self.set_xisolution(rgsol) 
     self.change_xi(xiarg,crit = ccrit)
     if rgwrite: self.writexipath()
     if plotrgvarpath: self.plotrgvarsxi(xlim = xlim , ylim = ylim)
     if plotepath: self.plotexi()
+    print  self.richeq.get_energy()
     return self.richeq.get_energy(),self.richeq
     
 def maintest():
@@ -476,26 +481,30 @@ def maintest():
   test main for main_rgsolver (which is an extraordinary important function) making that function
   more efficient is a huge timewinst. And making it more flexible will cause much better code
   '''
-  #eendlev = [9.8696,39.4784,88.8264,157.914,246.74,355.306,483.611,631.655,799.438,986.96]
+  #picket fence model
   eendlev = np.arange(1,13)
-  #ontaardingen = [6, 8, 2, 4, 12, 8]
   ontaardingen = np.ones(12,float)*2
-  #senioriteit = [3, 1, 1, 0, 2, 1]
   senioriteit = np.zeros(12,float)
-  tdastartd = {0:6,1: 0,2:0,3:0,4:0,5:0 ,8:0}
-  #tdastartd = {0:6}
-  g = -1.
-  #apair = 10
   apair = 6
+  #artikel Stefan test
+  eendlev = array([0.04,0.08,0.16,0.20,0.32,0.36,0.40,0.52,0.64,0.68,0.72,0.8,1])
+  eendlev = np.sqrt(eendlev)
+  senioriteit = zeros(len(eendlev),float)
+  ontaardingen = [4,4,4,8,4,4,8,8,4,8,4,8,12]
+  apair = 10
+  g = -0.075
   eta = 1.
-  xiarg = {'xistep' : 0.01 , 'xiend': 1.}
+  
+  g = -0.029
+  tdastartd = {0:10,1:0,2:0}
+  alevel = len(eendlev)
   #print ontaardingen,senioriteit,eendlev
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
   rgeq = RichFacInt(eendlev,ontaardingen,senioriteit,g,eta,apair)
   a = RichardsonSolver(rgeq)
-  energie,rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = False,plotrgvarpath = False , plotepath = False,xlim = None , ylim = None)
-  tdad  = a.main_desolve(xistep = -0.01,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None,xiend = 0.)
-  print tdad 
+  energie,rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
+  #tdad  = a.main_desolve(xistep = -0.01,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None,xiend = 0.)
+  #print tdad 
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)
