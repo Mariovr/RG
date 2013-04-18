@@ -26,7 +26,50 @@ def plot_2col(name,tit = 'title',xname = 'independendvar',yname = 'dependendvar'
   pl.title(tit)
   pl.savefig(name+'.png' )
   pl.close()
+
+def plot_spectrumxichange(dirname,search):
+  """
+  Plot the entire spectrum at a particular g in function of xi
+  args = directory with all the data
+  """
+  dirlist =	os.listdir(dirname)
+  filelist = [i for i in dirlist if search in i]
+  pl.figure(0)
+  xidata = []
+  edata = []
+  countgood = 0
+  countbad = 0
+  for j in filelist:
+    file = open(j,'r')
+    print 'working in file %s' %(j)
+    for line in file:
+      try: float(line[0])
+      except: continue
+      data = line.split()
+      xidata.append(float(data[0]))
+      edata.append(float(data[1]))
+    if xidata[-1] == 1.: 
+      pl.plot(xidata,edata,'b') 
+      countgood += 1
+      print j , countgood , 'good solution'
+    else: 
+      pl.plot(xidata,edata,'r') 
+      print j, countbad, 'bad solution'
+      countbad += 1
+    file.close()
+    xidata = [] ; edata = []
   
+  print 'We found %g good solutions and %g tda startdistributions that broke down before xi = 1, we hope that\'s what you expected' %(countgood,countbad)
+  pl.xlabel(r'$\xi$')
+  pl.ylabel(r'energy spectrum (a.u.)')
+  pl.title(r'All tda start distributions $\xi$')
+  #Create custom artists
+  goodline = pl.Line2D((0,1),(0,0), color='b') 
+  badline = pl.Line2D((0,1),(0,0), color='r')
+  
+  pl.legend([goodline,badline],['solution','breakdown'])
+  pl.savefig('spectrum%s.png' %(search.translate(None,'.')))
+  pl.close()
   
 def generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False):
   """
@@ -348,7 +391,7 @@ if __name__ == '__main__':
   '''
   option = 'rgcloud'
   args = 'DangSn120neutronwindow(5,5)sen=2.dat' , 9, -0.137, [1,1,0,0,0,0]
-  main(option,args)
-  
+  #main(option,args)
+  plot_spectrumxichange(sys.argv[1],sys.argv[2])  
   
   

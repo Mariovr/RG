@@ -91,7 +91,7 @@ def solve(f,x , tol=1.0e-14):
     #dx = gaussPivot(jac,-f0) #we commented our self written linalg solver out becaus the scipy solver is quicker and does the same thing
     dx = linalg.solve(jac,-f0)
     x = x + dx
-    #print "iteration: %g" %i , "|f(x)|= " , nauw
+    #print "iteration: %g" %i , "|f(x)|= " , nauw 
   print "Too many iterations"
   raise ValueError
 

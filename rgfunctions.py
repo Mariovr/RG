@@ -31,7 +31,7 @@ class Change_G(object):
       self.richeq.g += 1.j*cchange['step']
       energierg = self.richeq.solve()
       if self.richeq.g.imag + abs(step)/2. >= cchange['end'] and self.richeq.g.imag - abs(step)/2. <= cchange['end']:
-	self.richeq.g.imag = cchange['end']
+        self.richeq.g.imag = cchange['end']
     print 'we made g complex: %f' %self.richeq.g
     self.savesolutions[rgeq.g] = self.richeq.rgsolutions
     return self.richeq
@@ -43,7 +43,7 @@ class Change_G(object):
       self.richeq.g += rchange['step']
       energierg = self.richeq.solve()
       if self.richeq.g.imag + abs(step)/2. >= rchange['end'] and self.richeq.g.imag - abs(step)/2. <= rchange['end']:
-	self.richeq.g.imag = rchange['end']
+        self.richeq.g.imag = rchange['end']
     print 'we made g complex: %f' %self.richeq.g
     self.savesolutions[rgeq.g] = self.richeq.rgsolutions
     return self.richeq
@@ -74,18 +74,18 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
   if rgeq.rgsolutions is None:
     energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdtje, xival = xival)
   print ('######################################')
-  print ('Making g complex to circumvent a critical point on g = %s and n = %g ' %(str(rgeq.g) , n))
+  print ('Making g complex to circumvent a critical point on rgeq = %s and n = %g, stepg= %f, complexstepd = %f , dvar = %s, end = %f' %(str(rgeq),n,stepg,complexstepd,dvar,end))
   print ('######################################')
   phi = abs(rgeq.g)/(1000.*n)
   if end == None:
-    crit = abs(rgeq.g)/100.*n/2.
-    if n > 100:
-      crit /= 100.
+    crit = abs(rgeq.g)/100.
+    if n > 10:
+      crit *= 10.
     phis = abs(rgeq.g)/complexstepd #step of phi the complex variable
   else:
     crit = abs((rgeq.g+end)/10.)/10.
-    if n > 90:
-      crit *= n/50.
+    if n > 10.:
+      crit *= 10.
     n = int(abs(end-rgeq.g)/abs(stepg)) + 1
     phis = abs(rgeq.g+end)/(complexstepd*2.) #step of phi the complex variable
   assert(rgeq.rgsolutions is not None)
@@ -117,7 +117,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     rgeq.setvar(dvar,rgeq.getvar(dvar) + stepg)
     if end is not None:
       if (rgeq.getvar(dvar).real < end and stepg < 0) or (rgeq.getvar(dvar).real > end and stepg > 0):
-	rgeq.setvar(dvar,end)   
+        rgeq.setvar(dvar,end+ 1.j *  rgeq.getvar(dvar).imag)   
     energierg = rgeq.solve() 
     if end is not None and rgeq.g.real == end:
       break
@@ -135,7 +135,6 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
       rgeq.g = rgeq.g.real
     energierg = rgeq.solve()
     print ('distance measure rgeq.g = : %s' % str(rgeq.g))
-      
   print ('circumventing the critcal point on %f succeeded !!!!!!!!!!!!!!!!!' % rgeq.g.real)
   return energierg,rgeq,rgeq2
   
@@ -153,14 +152,14 @@ def genstartsol(rgeq,d,end,pairingd = None , begin = None):
   if begin is None: #search for the optimal start g
     if d/2. > abs(end):
       if pairingd is None:
-	pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen,rgeq.senioriteit)
+        pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen,rgeq.senioriteit)
       if end > 0 : rgeq.g = 0.01  #takes into account positive interaction constants and makes sure we increase the interaction constant
       else: rgeq.g = -1.
       assert(abs(rgeq.g) < abs(end))
     else:
       if pairingd is None:
-	pairingd = {}
-	pairingd[0] = rgeq.apair
+        pairingd = {}
+        pairingd[0] = rgeq.apair
       if end > 0: rgeq.g = abs(math.floor(d)*1.5) 
       else: rgeq.g = -abs(math.floor(d)*1.5)    
       assert(abs(rgeq.g) > abs(end)) # otherwise it's useless to go to smaller ic (ic > 0)
@@ -175,14 +174,14 @@ def genstartsol(rgeq,d,end,pairingd = None , begin = None):
         rgeq.g /= 10.
         print "the start interaction constant was not small enough so we reduced it to %f" % rgeq.g
         if abs(rgeq.g) < 1e-5:
-	  print 'BIG ERROR we dont find a start solution'
-	  return None , None #use this when using generating_data
+          print 'BIG ERROR we dont find a start solution'
+          return None , None #use this when using generating_data
       else:
         rgeq.g *= 2.
         print "the start interaction constant was not strong enough so we increased it to %f" % rgeq.g
         if abs(rgeq.g) > 20*abs(d):
-	  print 'BIG ERROR we didn\'t find a start solution'
-	  return None , None #use this when using generating_data
+          print 'BIG ERROR we didn\'t find a start solution'
+          return None , None #use this when using generating_data
   return rgeq
   
 def generate_dir(name,infilename,args = None, prefix = ''):
@@ -208,7 +207,7 @@ def generate_dir(name,infilename,args = None, prefix = ''):
     shutil.copy(infilename,dir)
   if args is not None:
     for i in args:
-      shutil.copy(i,x)
+      shutil.copy(i,dir)
   if prefix is not '':
     x = [i for i in os.listdir(os.getcwd()) if prefix in i]
     for a in x:
@@ -331,11 +330,11 @@ def wd_processing(wd2,nlev,npair,waarden):
   if wd2 > 0:
     for i in xrange (0,len(waarden)-1):
       if waarden[i]- waarden[0] > wd2:
-	nlevel = i
-	if nlevel < npair:
-	  print "het aantal energieniveaus bij 2wd = %f : is nlevel = %f dit is kleiner als apair %f dus fatale fout (oplossing: 2wd vergroten)" %(wd2,nlevel,npair)
-	  sys.exit(1)
-	break
+        nlevel = i
+        if nlevel < npair:
+          print "het aantal energieniveaus bij 2wd = %f : is nlevel = %f dit is kleiner als apair %f dus fatale fout (oplossing: 2wd vergroten)" %(wd2,nlevel,npair)
+          sys.exit(1)
+        break
   waarden = waarden[0:nlevel]
   return nlevel,waarden
 
@@ -358,7 +357,7 @@ def checkdegeneratie(waarden,deg,nauw = 0.00000000001):
       degsom += deg[c]
       c += 1
       if c >=nlev:
-	break
+        break
     deg[i] = degsom
     for m in range(a-1):
       del(waarden[i])
@@ -462,7 +461,7 @@ def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.001,st
     enil = []
     ontaarding = 1
     #allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde)
-    allstatesstrongg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde)
+    allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
   wind = 0 #variable that determines from which states we are gonna start to look for the solutions, because the order
   sw = 0
   #of the instances in sen_places_gen and tdacombinations is always the same
@@ -482,21 +481,20 @@ def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.001,st
     while j < len(rgeq.senioriteit):
       assert(rgeq.senioriteit[j] <= rgeq.ontaardingen[j]/2.)
       if rgeq.senioriteit[j] == rgeq.ontaardingen[j]/2.:
-	del(rgeq.energiel[j]) ; del(rgeq.ontaardingen[j]) ; del(rgeq.senioriteit[j]) #the level is full with unpaired electrons so the level doesn't take part in the pairing interaction
+        del(rgeq.energiel[j]) ; del(rgeq.ontaardingen[j]) ; del(rgeq.senioriteit[j]) #the level is full with unpaired electrons so the level doesn't take part in the pairing interaction
         j -= 1
       j+= 1
     #calculate the degeneracy of the level  
     for i in range(len(rgeq.senioriteit)):
-      if rgeq.senioriteit[i] is not 0:	
+      if rgeq.senioriteit[i] is not 0:        
         ontaarding *= binoml(rgeq.ontaardingen[i]/2.,rgeq.senioriteit[i])
     print rgeq.energiel,rgeq.ontaardingen, rgeq.senioriteit,rgeq.apair, enil
     assert(len(enil) == vsen) #check if we take into account all unpaired elektrons in total energy later  
-    assert(sum(rgeq.senioriteit) == vsen)
     if npair is not 0:
       #if npair > 2:
-	#wind = allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde,wind = wind,startw = sw,begin = begin,step = step)
+        #wind = allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde,wind = wind,startw = sw,begin = begin,step = step)
       #else:
-      allstatesstrongg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde)
+      allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
     else:
       print 'd'
       fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), sum(enil)+exewaarde,ontaarding,'geen RGvars' ,'geen RGvars'))    
@@ -532,7 +530,7 @@ def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,
       a = tdadict.count(i)      
       tdastartd[i] = a
       if a*2 + rgeq.senioriteit[i]*2 > rgeq.ontaardingen[i]:
-	goodsol = False
+        goodsol = False
     if goodsol == True:
       wind += 1
     if goodsol == True and wind > startw:
@@ -545,7 +543,7 @@ def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,
       fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(tdastartd), energierg,ontaarding,' '.join(map(str,rgeq.rgsolutions.real)),' '.join(map(str,rgeq.rgsolutions.imag))))     
   return wind
   
-def allstatesstrongg(rgeq,fd,ontaarding,extrae = [],exe= 0): 
+def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataanalyse = {'rgw': False , 'ple' : False , 'plrg' : False , 'ont' : True}): 
   '''
   INPUT:filehandler(fd): file where the outputs is going to be written, list(energielev): list of sp levels, list(degeneration)
   list of degeneracies of the sp levels, float(koppelingsconstante): the interaction constant, int(npair): number of pairs, list(senioriteit) :
@@ -559,7 +557,8 @@ def allstatesstrongg(rgeq,fd,ontaarding,extrae = [],exe= 0):
   Output: None
   '''
   #to calculate all the permutations of 35 sp levels of the 77 so we choose out a np.arange(nlevel) npair levels where we put our pairs (with repetition)
-  tdacombinations = combinations_with_replacement(np.arange(len(rgeq.energiel)),rgeq.apair)
+  rgw = dataanalyse['rgw'] ; ple = dataanalyse['ple'] ; plrg = dataanalyse['plrg'] 
+  tdacombinations = combinations_with_replacement(np.arange(activelevels),rgeq.apair)
   for tdadict in tdacombinations:
     dict = {}
   #tdastart needs to be a dictionary; suppose we want to start from a tdadistribution 30 0 0 2 0 3 -> the corresponding tdadict is: {0:30, 3:2, 5:3}
@@ -568,16 +567,17 @@ def allstatesstrongg(rgeq,fd,ontaarding,extrae = [],exe= 0):
     nosol = False
     print 'we start rg.main_rgsolver with: ', dict#,energielev,koppelingsconstante,npair,sencopy,rgvar,deg
     try:
-      energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(dict) 
+      energierg,rgeqn = rg.RichardsonSolver(rgeq).main_solve(dict,rgwrite = rgw, plotrgvarpath = plrg , plotepath = ple) 
       energierg += sum(extrae) + exe  #add the contribution of the unpaired electrons
-    except:
+    except rg.XiError as xier:
       nosol = True       
     if nosol == False:
-      for key,value in dict.iteritems():
-        ontaarding *= binoml(rgeq.ontaardingen[key]/2,value)
-      fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), energierg,ontaarding,' '.join(map(str,rgeq.rgsolutions.real)),' '.join(map(str,rgeq.rgsolutions.imag))))     
+      if dataanalyse['ont'] == True:
+        for key,value in dict.iteritems():
+          ontaarding *= binoml(rgeqn.ontaardingen[key]/2,value)
+      fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), energierg,ontaarding,' '.join(map(str,rgeqn.rgsolutions.real)),' '.join(map(str,rgeqn.rgsolutions.imag))))     
     else:
-      #fd.write('#%s has no solution\n' %str(dict))
+      fd.write('#%s has no solution we reached xi and energyvalue: %f %f %s\n' %(str(dict),xier.xi,xier.energy,str(xier.rgvars).translate(None,'\n')) )
       pass
   return 0  
   
@@ -613,9 +613,9 @@ def readlevels(infilename , waardeafh,nlevel):
     test = line.split()
     if test[0][0] != '#':
       if waardeafh == float(test[0]) or waardeafh == None:
-	waarden = map(float,line.split())
-	print ' energie niveaus bij afhankelijke variabele: ' , waarden[0] , ' zijn ingelezen'
-	break
+        waarden = map(float,line.split())
+        print ' energie niveaus bij afhankelijke variabele: ' , waarden[0] , ' zijn ingelezen'
+        break
   if ((len(waarden) < 2)):
     print 'error geen energieniveaus ingelezen'
   energielev = waarden[1:nlevel+1]
@@ -631,7 +631,7 @@ def dangSn(filen,cutoff = 1e5):
     else:
       data = map(float,line.split())
       if data[0] > cutoff:
-	break
+        break
       elevel.append(data[0])
       #deg.append(data[1]*4)
   deg = [2]*len(elevel)
@@ -679,6 +679,31 @@ def readrgvars(g, name = 'rgvar.dat'):
   ref.close()
   return rgvars
   
+def readrgvarsplote(afhvar, name = 'plotenergy.dat'):
+  """
+  function that reads back in the rgvars out of an plotenergy.dat file generated by generating_datak
+  """
+  ref = open(name,'r')
+  for line in ref:
+    if line[0]== '#':
+      continue
+    data = line.split()
+    try:
+      float(data[0])
+    except:
+      continue
+    if float(data[0]) == afhvar:
+      mixdata = map(float,data)[3:]
+      redata = mixdata[::2]
+      imdata = mixdata[1::2]
+  print redata , imdata
+  ref.close()
+  assert(len(redata) == len(imdata))
+  rgvars = empty(len(redata),complex)
+  rgvars.real = redata
+  rgvars.imag = imdata
+  return rgvars
+
 def continuity_check(arraysol, rgeq,crit = 1.6,dvar = 'g'):
   '''
   function that investigates, if the new solution: $nval forfilles the continuity criterium:
@@ -697,8 +722,9 @@ def continuity_check(arraysol, rgeq,crit = 1.6,dvar = 'g'):
       adapter += abs(arraysol[i].getvar(dvar)- arraysol[i+1].getvar(dvar)) 
       meand += abs(arraysol[i].energy - arraysol[i+1].energy)
     verschil = abs(arraysol[-1].energy - rgeq.energy)
-    adapter = abs(arraysol[-1].getvar(dvar) - rgeq.getvar(dvar))/adapter
-    if verschil < meand* crit/(grootte-1) *(adapter*(grootte-1))**1.8: #REMARK 1/(grootte-1) of mean difference but also * (grootte-1) because of adapter
+    adapter = abs(arraysol[-1].getvar(dvar) - rgeq.getvar(dvar))*(grootte-1)/adapter
+    if adapter < 1: adapter = 1 
+    if verschil < meand* crit/(grootte-1) *(adapter)**1.8: #REMARK 1/(grootte-1) of mean difference but also * (grootte-1) because of adapter
       del(arraysol[0])
       arraysol.append(rgeq.copy())
     else:
