@@ -131,7 +131,23 @@ def generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False):
 
 def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar',stop = None,begin = 0,istart = 3):
   plotf = open(ref, 'r')
-  dataf = np.loadtxt(plotf,comments = '#')
+  try:
+    dataf = np.loadtxt(plotf,comments = '#')
+  except:
+    dataf = np.array([])
+    plotf.seek(0) #go back to beginning of file
+    for line in plotf:
+      if line[0] == '#':
+        continue
+      pline = np.array(map(float,line.split()))
+      if len(dataf) <= 1:
+        dataf = pline
+      else:
+        try:
+          dataf = np.vstack((dataf,pline))
+        except:
+          continue
+    print np.shape(dataf)
   pl.figure()
   for i in xrange(istart,2*apair+istart,2):
     if stop is None:

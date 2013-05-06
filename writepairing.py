@@ -19,15 +19,17 @@ def main():
   """
   kp = True #for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
+  probname = 'teste' #adds to the directory name where all the output data is going to be stored
   afh = {'start':0. , 'end':1. , 'step':0.01} ; spkar = 'xo' #characterizes the sp levels in the file as run = 'f' and input is a filename
-  ende = -0.001 #for runstring = 'k'
-  npair = 5 #if you use a filename as input
-  nlevel = 10 #if you use a filename as input
+  step = {'n': -0.0001,'p': 0.003}; ende = {'p' : 10. , 'n' : -0.075} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  sign = 'n' #for runstring = k determines which instances of step and ende it receives
+  npair = 10 #if you use a filename as input or gives the number of pairs in the rombout system
+  nlevel = 10 #if you use a filename as input or gives the number of levels in the picketfence model
   eta = 1.
   seniority = zeros(nlevel,float)  #if you use filename as input
   degeneration = degeneracies_super(nlevel) #if you use filename as input
   #set the seniority and degeneracy of the problem (in this case all to zero) REMARK: we can only do this after the definite number of sp levels is known
-  kleinekoppeling = False#put kleinekoppeling True if the tda distribution is 1 1 1 1 ... (and the interaction constant has little effect) if False the tdastartd is apair 0 0 ...
+  kleinekoppeling =True#put kleinekoppeling True if the tda distribution is 1 1 1 1 ... (and the interaction constant has little effect) if False the tdastartd is apair 0 0 ...
   wd2 = -50. #(wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable is not defined (wd < 0) then the number of sp levels stays constant
   #handling of input variables
   usage = "python writepairing.py [options] arguments \n(take also a look at which function is the main function in the bottom of the writepairing.py file)"
@@ -50,7 +52,6 @@ def main():
   wafh = options.wafh
   npair = options.apair
   #creation of directory name where we save the output of the run
-  probname = ''
   if args: 
     probname = args[0] +'prob'
   inputlist = ['r','s','d']
@@ -70,6 +71,7 @@ def main():
       print 'error this interaction is not yet known: put typeint one of these: r,f'
       sys.exit(1)
   elif inputname in inputlist:
+    print inputname
     if inputname == 'r':
       rgeq = romboutsprob(g = interactionconstant, apair = npair) #typical interacion constant between -0.075 and -0.0001 for groundstate
     elif inputname == 's':
@@ -84,10 +86,8 @@ def main():
   #preparing the dictionary according to the limit of the interaction constant we probe
   if kleinekoppeling:    
     pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
-    step = -0.003
   else:
     pairingd[0] = rgeq.apair
-    step = 0.0001
   
   #some checks of the initialisation variables
   assert(len(rgeq.ontaardingen) == len(rgeq.senioriteit)) 
@@ -105,7 +105,7 @@ def main():
     generate_plot(nlevel,npair,depvar,plotg = True,name = name+'.dat')
         
   elif runstring == "k":
-    generating_datak(rgeq,pairingd,depvar,step,ende,tdafilebool = True ,exname = name,moviede =False)       
+    generating_datak(rgeq,pairingd,depvar,step[sign],ende[sign],tdafilebool = True ,exname = name,moviede =False)       
     #generate some nice plots of the created data in the problem directory
     generate_plot(nlevel,npair,depvar,plotg = False,name='plotenergy'+name+'.dat')
   
@@ -117,13 +117,12 @@ def main():
     rgw = True
     mov = False
     tdaf = False
-    step = {'n': -0.0001,'p': 0.003}; ende = {'p' : 10. , 'n' : -0.075}
     try:
       assert(kleinekoppeling)
     except AssertionError:
       print 'put kleinekoppeling True because the survey of exited states commands to go from the weak interaction limit to the strong interaction limit'
-    allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf)
-    #probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf) 
+    #allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf)
+    probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf) 
   else:
     print 'runstring: %s is not a valid runstring' %runstring
    
@@ -356,6 +355,7 @@ def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n') :
   '''
   function that investigates excited states
   '''
+  print rgeq
   pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen,rgeq.senioriteit)
   generating_datak(rgeq,pairingd,afhxas,step[sign], ende[sign],exname = 'grondtoestand',rgwrite = rgw, moviede =mov , tdafilebool = tdaf)
   generate_plot(rgeq.alevel,rgeq.apair,afhxas,name = 'plotenergygrondtoestand.dat', plotg = False)
@@ -363,7 +363,7 @@ def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n') :
   for j in xrange(nullevel):
     pairingd[nullevel-j-1] -= 1
     for i in xrange(rgeq.alevel-nullevel+1):
-      print 'we are calculating the following exitation: pair in level %g -> level %g ' %(j,nullevel+i)
+      print 'we are calculating the following excitation: pair in level %g -> level %g ' %(j,nullevel+i)
       pairingd[nullevel+i] = 1
       extraname = str(nullevel-j-1) +'_'+str(nullevel +i)
       generating_datak(rgeq,pairingd,afhxas,step[sign],ende[sign],rgwrite = rgw,exname = extraname,moviede = mov,tdafilebool = tdaf)
@@ -568,8 +568,8 @@ def testrestart():
 
 
 if __name__ == "__main__":
-  testrestart()
-  #main()
+  #testrestart()
+  main()
   #dangmain()
   #testcircumvent()
   #addlevel() #function in rgfunctions

@@ -144,7 +144,11 @@ class RichRedBcs(RichardsonEq):
     
   def copy(self):
     #self made copy function because copy.deepcopy() is to damn slow
-    d = RichRedBcs(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.apair,xi = self.xi,rgsol = np.copy(self.rgsolutions))
+    if self.rgsolutions == None:
+      rgcop = None
+    else:
+      rgcop = np.copy(self.rgsolutions)
+    d = RichRedBcs(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.apair,xi = self.xi,rgsol = rgcop)
     d.energy = self.energy
     return d
 
@@ -232,12 +236,16 @@ class RichFacInt(RichardsonEq):
     
   def __str__(self):
     s = super(RichFacInt,self).__str__()
-    s += '#And eta is determined by %f' %self.eta
+    s += '#And eta is determined by %f\n' %self.eta
     return s
   
   def copy(self):
     #self made copy function because copy.deepcopy() is to damn slow
-    d = RichFacInt(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.eta,self.apair,xi = self.xi,rgsol = np.copy(self.rgsolutions))
+    if self.rgsolutions == None:
+      rgcop = None
+    else:
+      rgcop = np.copy(self.rgsolutions)
+    d = RichFacInt(self.energiel,self.ontaardingen,self.senioriteit,self.g,self.eta,self.apair,xi = self.xi,rgsol = rgcop)
     d.energy = self.energy
     return d
     
@@ -254,7 +262,7 @@ class RichardsonSolver(object):
     elif isinstance(richeq,RichRedBcs):
       self.tda = TdaRedBcs(self.richeq.energiel,self.richeq.ontaardingen,self.richeq.g)
     self.xisolutions = []# use as [xi: (E, Rgvar), ...]
-    if self.richeq.rgsolutions.dtype != 'object':
+    if self.richeq.rgsolutions != None:
       self.set_xisolution(self.richeq.get_energy())
     print 'we created a RichardsonSolver with following RG equations: %s' %str(self.richeq)
     
@@ -484,7 +492,7 @@ class RichardsonSolver(object):
     return self.deduceTdaDist() #sets also the tdadict of the self.tda instance to the calculated dictionary of tdasolutions
 
   def main_solve(self,tdadict,xistep = 0.01 ,xival = 1.,ccrit = 1.7,rgwrite = False,plotrgvarpath = False , plotepath = False,xlim = None, ylim = None):
-    print 'we entered main_solve'
+    print 'we entered main_solve with tdadict: %s' %(str(tdadict))
     assert(xistep > 0 and sum(tdadict.values()) == self.richeq.apair), str(xistep)+str( self.richeq.apair)
     error = False
     self.richeq.xi = 5.992003000000000027e-6
