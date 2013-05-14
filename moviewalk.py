@@ -81,6 +81,8 @@ def find(func,rootdir,arg = None):
     os.chdir(rootdir)
     makemovie()
     os.chdir(cwd)
+
+
 if __name__ == '__main__':
   npair = 6
   rootdir = '/home/beheerder/sambataro2'

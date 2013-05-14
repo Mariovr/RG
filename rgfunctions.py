@@ -600,7 +600,7 @@ def info_1set(filehandler,rgeqstring, exinfo = '#',tdadict = None,contenergy = N
   if contenergy is not None:
     filehandler.write('#The energy from the electrons that don\'t participate in the pairing is %f\n' % contenergy)
 
-def readlevels(infilename , waardeafh,nlevel):
+def readlevels(infilename , waardeafh,nlevel = None):
   '''
   function that reads the energylevels from file infilename at dependend value wafh
   REMARK: the column at the left is the column with the dependend value that characterizes the energylevels
@@ -614,11 +614,14 @@ def readlevels(infilename , waardeafh,nlevel):
     if test[0][0] != '#':
       if waardeafh == float(test[0]) or waardeafh == None:
         waarden = map(float,line.split())
-        print ' energie niveaus bij afhankelijke variabele: ' , waarden[0] , ' zijn ingelezen'
+        print 'energie niveaus bij afhankelijke variabele:' , waarden[0] , 'zijn ingelezen'
         break
   if ((len(waarden) < 2)):
-    print 'error geen energieniveaus ingelezen'
-  energielev = waarden[1:nlevel+1]
+    print 'no data retrieved from file'
+  if nlevel == None  :
+    energielev = waarden[1:]
+  else:
+    energielev = waarden[1:nlevel+1]
   return energielev      
     
 def dangSn(filen,cutoff = 1e5):

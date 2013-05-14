@@ -370,18 +370,14 @@ def main(option, args):
     
   if option == 'rgvar':
     apair, exname = args[0:2]
-    ref = 'rergvar.dat'; imf = 'imrgvar.dat' ; afhvar = 'g' ; namerg = 'rgvar' 
+    ref = 'testplot.dat';  afhvar = 'g' ; namerg = 'rgvarshort' 
     try:
-      begin = args[2]
+      begin =int(args[2])
       stop = args[3]
     except:
       begin = 0
       stop = None
-    if exname is not None:
-      ref = 'rergvar%s.dat' %exname
-      imf =  'imrgvar%s.dat' %exname
-      namerg = 'rgvar%s' %exname
-    plotrgvars(apair,ref = ref,imf = imf,afhvar = 'g' , namerg = namerg,begin = begin,stop = stop)
+    plotrgvars(apair,ref = ref,afhvar = 'g' , namerg = namerg,begin = begin,stop = None,istart=3)
   
   if option is 'rgcloud':
     name, npair,g,sen = args 
@@ -405,9 +401,9 @@ if __name__ == '__main__':
   args = -0.137
   main(option,args)
   '''
-  option = 'rgcloud'
-  args = 'DangSn120neutronwindow(5,5)sen=2.dat' , 9, -0.137, [1,1,0,0,0,0]
-  #main(option,args)
-  plot_spectrumxichange(sys.argv[1],sys.argv[2])  
+  option = 'rgvar'
+  args = 128, '',4000, None
+  main(option,args)
+  #plot_spectrumxichange(sys.argv[1],sys.argv[2])  
   
   

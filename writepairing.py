@@ -375,7 +375,7 @@ def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n') :
 
 def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf):
   '''
-  calculates all the eigenvalues of the pairingsHamiltonian of a system with double degenerate, equidistant levels and zero seniority
+  calculates all the eigenvalues of the pairingsHamiltonian
   '''
   tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
   onezipper = np.ones(rgeq.apair)
