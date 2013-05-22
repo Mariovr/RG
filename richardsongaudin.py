@@ -267,6 +267,8 @@ class RichardsonSolver(object):
     print 'we created a RichardsonSolver with following RG equations: %s' %str(self.richeq)
     
   def get_tda(self,tdadict):
+    #if tdadict = None then the tdadict of the self.tda instance is used
+    #if that dictionary is not yet changed after initialisation then all tdasolutions are returned
     return self.tda.bisect_tda(tdadict)
   
   def change_tdadict(self,tdad):
@@ -277,10 +279,10 @@ class RichardsonSolver(object):
     
   def get_xisolutions(idxi = None):
     if xi == None: 
-      return self.xioplossingen
+      return self.xisolutions
     else: 
-      sorted(self.xioplossingen , key = lambda opl: opl[0])
-      return self.xioplossingen[idxi]
+      self.xisorted(self.xisolutions , key = lambda opl: opl[0])
+      return self.xisolutions [idxi]
     
   def deduceTdaDist(self):
     '''
@@ -317,7 +319,7 @@ class RichardsonSolver(object):
       else:
         i+=1 
     assert(sum(tdadict) == len(realrgvar))
-    self.tda.tdadict = tdadict
+    #self.tda.tdadict = tdadict
     return tdadict
     
   def change_xi(self,xiarg,crit = 1.8):
@@ -373,6 +375,7 @@ class RichardsonSolver(object):
           print 'error we have discoverd a discontinuity in the energy when we variate xi from 0 to 1'
           rgsol = self.circumvent(xisavestep,xiend)
           if not rgf.continuity_check(carray,self.richeq ,crit = crit*5,dvar = 'xi'):
+            self.writexipath()
             raise XiError(carray[-1].xi,carray[-1].energy,carray[-1].rgsolutions)
             print 'take another tdasolution'
           else:
@@ -414,13 +417,14 @@ class RichardsonSolver(object):
     '''
     writes the path in xi space of the rgvars in the complexplane and the energy to a file.
     '''
-    sorted(self.xisolutions , key = lambda opl : opl[0])
+    self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
     xifile = open(fname ,'w')
     xifile.write('#This file contains the energy and rgvariables of a set RG equations with variating xi\n')
     xifile.write('%s\n' % str(self.richeq))
     xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
-    sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
+    if reverse:
+      sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
     for opl in self.xisolutions:
       xifile.write('%f\t%f\t' %(opl[0] , opl[1]))
       for j in xrange(self.richeq.apair):
@@ -434,7 +438,7 @@ class RichardsonSolver(object):
     '''
     singularitys = self.tda.calc_singularity()
     pl.figure()
-    sorted(self.xisolutions , key = lambda opl : opl[0])
+    self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     for i in range(self.richeq.apair):
       try:
         pl.plot(self.xisolutions[0][2][i].real,self.xisolutions[0][2][i].imag,'r.', mfc = 'None' , markersize = 10)
@@ -466,7 +470,7 @@ class RichardsonSolver(object):
     Function that plots the energy as function of Xi
     '''
     pl.figure()
-    sorted(self.xisolutions , key = lambda opl : opl[0])
+    self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     xw = [i[0] for i in self.xisolutions]
     yw = [i[1] for i in self.xisolutions]
     pl.plot(xw , yw)  
@@ -517,7 +521,7 @@ def maintest():
   more efficient is a huge timewinst. And making it more flexible will cause much better code
   '''
   #picket fence model
-  nlev = 6
+  nlev = 12
   eendlev = np.arange(1,nlev+1)
   ontaardingen = np.ones(nlev,float)*2
   senioriteit = np.zeros(nlev,float)
@@ -532,17 +536,17 @@ def maintest():
   g = -0.075
   '''
   eta = 1.
-  g = -2.
+  g = -0.109150
   #tdastartd = {0:0,1:2,2:0,3:0,4:1,5:0}
-  tdastartd = {0:0,1:1,2:0,3:0,4:2,5:0}
+  tdastartd = {0:3,1:2,2:0,3:1,4:0,5:0}
   alevel = len(eendlev)
   #print ontaardingen,senioriteit,eendlev
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
-  rgeq = RichRedBcs(eendlev,ontaardingen,senioriteit,g,apair)
+  rgeq = RichFacInt(eendlev,ontaardingen,senioriteit,g,eta,apair)
   a = RichardsonSolver(rgeq)
   energie,rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
-  #tdad  = a.main_desolve(xistep = -0.01,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None,xiend = 0.)
-  #print tdad 
+  tdad  = a.main_desolve(xistep = -0.01,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None,xiend = 0.)
+  print tdad 
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)

@@ -95,7 +95,7 @@ def generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False):
       ee.append(float(data[4]))
     except:
       pass
-    ##cc.append(float(data[2])) 
+    #cc.append(float(data[2])) 
   #plot of groundstate energy
   pl.figure()
   pl.plot(aa,bb,'r')
@@ -357,12 +357,14 @@ def main(option, args):
     generatePlotExited(nlevel,npair,afh,afhxas)
     
   if option == 'wpairing':
-    nlevel,npair,dvar,afhxas = args[0:4]
+    nlevel,npair,dvar = args[0:3]
     try:
-      name,nig,plotg = args[4:]
+      name,nig,plotg = args[3:]
     except:
       pass
-    generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = False)
+    print nlevel,npair,dvar
+    generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False)
+
   
   if option == 'addlevel':
     g = args[0]
@@ -370,7 +372,7 @@ def main(option, args):
     
   if option == 'rgvar':
     apair, exname = args[0:2]
-    ref = 'testplot.dat';  afhvar = 'g' ; namerg = 'rgvarshort' 
+    ref = 'plotenergy.dat';  afhvar = 'g' ; namerg = 'rgvarshort' 
     try:
       begin =int(args[2])
       stop = args[3]
@@ -402,7 +404,8 @@ if __name__ == '__main__':
   main(option,args)
   '''
   option = 'rgvar'
-  args = 128, '',4000, None
+  #args =allstates0.dat, 6,4000, None
+  args = 6 , ''
   main(option,args)
   #plot_spectrumxichange(sys.argv[1],sys.argv[2])  
   

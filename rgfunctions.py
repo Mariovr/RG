@@ -86,6 +86,8 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     crit = abs((rgeq.g+end)/10.)/10.
     if n > 10.:
       crit *= 10.
+    if n > 100:
+      crit *= 10.
     n = int(abs(end-rgeq.g)/abs(stepg)) + 1
     phis = abs(rgeq.g+end)/(complexstepd*2.) #step of phi the complex variable
   assert(rgeq.rgsolutions is not None)
@@ -416,7 +418,7 @@ def makemovie():
   command = ('mencoder',
            'mf://*.png',
            '-mf',
-           'type=png:w=800:h=600:fps=15',
+           'type=png:w=800:h=600:fps=5',
            '-ovc',
            'lavc',
            '-lavcopts',
@@ -600,7 +602,7 @@ def info_1set(filehandler,rgeqstring, exinfo = '#',tdadict = None,contenergy = N
   if contenergy is not None:
     filehandler.write('#The energy from the electrons that don\'t participate in the pairing is %f\n' % contenergy)
 
-def readlevels(infilename , waardeafh,nlevel = None):
+def readlevels(infilename , waardeafh,nlevel = None,nauw = None):
   '''
   function that reads the energylevels from file infilename at dependend value wafh
   REMARK: the column at the left is the column with the dependend value that characterizes the energylevels
@@ -612,7 +614,7 @@ def readlevels(infilename , waardeafh,nlevel = None):
   for line in ifile:
     test = line.split()
     if test[0][0] != '#':
-      if waardeafh == float(test[0]) or waardeafh == None:
+      if (waardeafh >= float(test[0])-nauw/2. and waardeafh <= float(test[0])+nauw/2. ) or waardeafh == None:
         waarden = map(float,line.split())
         print 'energie niveaus bij afhankelijke variabele:' , waarden[0] , 'zijn ingelezen'
         break

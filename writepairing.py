@@ -17,14 +17,15 @@ def main():
   """
   main function that solves the rg equations for general sp levels and degeneracies extracted from a given file 
   """
-  kp = True #for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
+  kp =True #for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
-  probname = 'teste' #adds to the directory name where all the output data is going to be stored
+  probname = 'testchanges' #adds to the directory name where all the output data is going to be stored
   afh = {'start':0. , 'end':1. , 'step':0.01} ; spkar = 'xo' #characterizes the sp levels in the file as run = 'f' and input is a filename
-  step = {'n': -0.0001,'p': 0.003}; ende = {'p' : 10. , 'n' : -0.075} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  step = {'n': -0.0001,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.0750} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  rgw = True ; mov = False ; tdaf = False
   sign = 'n' #for runstring = k determines which instances of step and ende it receives
-  npair = 10 #if you use a filename as input or gives the number of pairs in the rombout system
-  nlevel = 10 #if you use a filename as input or gives the number of levels in the picketfence model
+  npair =6#if you use a filename as input or gives the number of pairs in the rombout system
+  nlevel = 12#if you use a filename as input or gives the number of levels in the picketfence model
   eta = 1.
   seniority = zeros(nlevel,float)  #if you use filename as input
   degeneration = degeneracies_super(nlevel) #if you use filename as input
@@ -36,12 +37,12 @@ def main():
   parser = OptionParser(usage = usage)
   parser.add_option('-f','--filename',dest = 'filename' ,default = None,type = str, help = 'File of which each line consists of a dependend variable and the corresponding sp energylevels (seperated by tabs)')
   parser.add_option('-v','--variable',dest = 'depvar',default = 'g' , help = 'Give the string representation of the independend variable that is going to be changed')
-  parser.add_option('-i','--interactionc',dest = 'interactionconstant',default = -0.1,type = float,help = 'Give the pairing strength')
+  parser.add_option('-i','--interactionc',dest = 'interactionconstant',default = -0.0001,type = float,help = 'Give the pairing strength')
   parser.add_option('-r','--run', dest = 'runstring' , default = 'k' , help = 'Give the mainrun you want the program to execute')
   parser.add_option('-H' , '--hamiltonian' , dest = 'hamiltonian' , default = 'r' , help = 'Give the hamiltonian you want to solve: \'r\' is the red. bcs. Hamiltonian, \'f\' is the fac. int. Hamiltonian')
   parser.add_option('-n', '--inputname', dest = 'inputname' , default = None , help = 'If you don\'t use a file to get the sp levels choose some predefined sets: r (rombouts:2010) , s (sambataro:2008)' )
   parser.add_option('-w','--afhwaarde' , dest = 'wafh' , default = 0. , help = 'If you use a file containing sp energy levels as input, wafh is the value that characterizes the sp levels you want to investigate')
-  parser.add_option('-p','--apair' , dest = 'apair' , default = 10 , help ='the number of pairs ', type = int)
+  #parser.add_option('-p','--apair' , dest = 'apair' , default = 10 , help ='the number of pairs ', type = int)
   (options , args) = parser.parse_args(sys.argv[1:])
   filename = options.filename
   depvar = options.depvar
@@ -50,7 +51,6 @@ def main():
   typeint = options.hamiltonian
   inputname = options.inputname
   wafh = options.wafh
-  npair = options.apair
   #creation of directory name where we save the output of the run
   if args: 
     probname = args[0] +'prob'
@@ -75,7 +75,7 @@ def main():
     if inputname == 'r':
       rgeq = romboutsprob(g = interactionconstant, apair = npair) #typical interacion constant between -0.075 and -0.0001 for groundstate
     elif inputname == 's':
-      rgeq = picketfence(hamiltonian = 'r' , alevel = nlevel,g = interactionconstant,eta = eta)
+      rgeq = picketfence(hamiltonian = options.hamiltonian, alevel = nlevel,g = interactionconstant,eta = eta , apair = npair)
     elif inputname == 'd':
       rgeq = dang(filename = 'Sn120Neutrons' , cutoff = 1e5, koppelingsconstante = interactionconstant) #typ int. c. = -0.137
   else:
@@ -105,7 +105,7 @@ def main():
     generate_plot(nlevel,npair,depvar,plotg = True,name = name+'.dat')
         
   elif runstring == "k":
-    generating_datak(rgeq,pairingd,depvar,step[sign],ende[sign],tdafilebool = True ,exname = name,moviede =False)       
+    generating_datak(rgeq,pairingd,depvar,step[sign],ende[sign],rgwrite = rgw ,tdafilebool = tdaf,exname = name,moviede = mov)       
     #generate some nice plots of the created data in the problem directory
     generate_plot(nlevel,npair,depvar,plotg = False,name='plotenergy'+name+'.dat')
   
@@ -114,15 +114,12 @@ def main():
     because in the non-interacting limit we know some exited states vb: 1111100000 -> 1111010000 we must start the survey of the
     non-interacting states from weak interaction limit to the big limit
     '''
-    rgw = True
-    mov = False
-    tdaf = False
     try:
       assert(kleinekoppeling)
     except AssertionError:
       print 'put kleinekoppeling True because the survey of exited states commands to go from the weak interaction limit to the strong interaction limit'
-    #allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf)
-    probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf) 
+    allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf)
+    #probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf) 
   else:
     print 'runstring: %s is not a valid runstring' %runstring
    
@@ -201,6 +198,7 @@ def generating_data(rgeq,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namep
         print '######################################################################################'
         print 'we arrived at a discontinuity'
         print '######################################################################################'
+        plotenergyfile.write('#we arrived at a discontinuity\n')
         if kp is True:
           send = rgeq.g 
           rgeq = genstartsol(rgeq,d,send,begin = None,pairingd = None)
@@ -263,6 +261,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     try:
       energierg = rgeq.solve()
       if not continuity_check(conarray, rgeq,crit = 1.8,dvar = dvar):
+        plotenergyfile.write('#we arrived at a discontinuity\n')
         raise ValueError
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
       """
@@ -280,17 +279,19 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
       while lastkp == False:        
         if (rgeq.getvar(dvar) - abs(step)*1.5 < end and rgeq.getvar(dvar) + abs(step) *1.5 > end):
           send = end
+          step /= 2.
         try:
           #make sure that you divide step by a divisor from step 
           if n > 1:
             send += savestep/2.
+            step += savestep/4.
           if rgeqsaveback == None:
             send += step
             energierg,rgeq,rgeqsaveback = littleLoop(conarray[-2],step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
-          elif abs(rgeqsaveback.getvar(dvar)-send)/step > 10 and n <60: 
+          elif abs(rgeqsaveback.getvar(dvar)-send)/abs(savestep)   > 4 and n < 100: 
             energierg,rgeq,rgeqsaveback = littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
           else:
-            if n > 100:
+            if n < 310:
               send = savesend 
               complexstep = 10000
               step = savestep
@@ -298,38 +299,32 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
             assert(isinstance(rgeqsaveback.g,complex))
             energierg,rgeq, rgeqsaveback = littleLoop(rgeqsaveback,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
             lastkp = True
-            step = savestep 
             if n > 1000:
               print 'fatal error in program to many iterations in generating_datak' ; sys.exit(1) 
-          if not continuity_check(conarray, rgeq,crit = 1.9,dvar = dvar):
+          if not continuity_check(conarray, rgeq,crit = 1.9 * n % 4 ,dvar = dvar):
             print'problems with continuity of the found solutions %s with the following richardsoneq %s' %(str(conarray),str(rgeq))
+            plotenergyfile.write('# discontinuity at %s  , with n = %g , send = %f , complexstep = %f , step = %f' %(str(rgeq.getvar(dvar)), n , send , complexstep , step))
             rgeq.rgsolutions = savergsolutions
             rgeq.setvar(dvar,savedepvar) #go back to the rgeq where we know the solution
             raise ValueError
           lastkp = True
           step = savestep
         except (ValueError, np.linalg.linalg.LinAlgError) as e:
+          n *= 4
           if abs(rgeq.getvar(dvar)) > 1e-3:
             if complexstep <= 4e5:
-              complexstep *= 2.
+              complexstep *= 2. #how bigger complexstep how smaller step in complexspace
           else:
             complexstep /= 10.
-          if rgeq.getvar(dvar) - abs(step)*1.5 < end and rgeq.getvar(dvar) + abs(step) *1.5 > end:
-            step /= 2.            
-            if abs(step) < 1e-7:
-              n = 100000
-          else:  
-            if step >= 1e-5:
-              step /= 5.
-              n *= 5
-          print 'couldn\'t circumvent the critical point at %s = %f, try to make the step of the interaction constant bigger in complexspace' %(dvar,rgeq.getvar(dvar))
-          print 'circumventing a critical point at %g steps and step in complexspace is %f' %(n, complexstep)       
+          print 'circumventing a critical point at %g steps and step in complexspace is %f , at %s = %f ' %(n, complexstep,dvar,rgeq.getvar(dvar))       
     finally:
       if tdafilebool is True:
+        rgsolver = rg.RichardsonSolver(rgeq)
         try:
-          pairingdict  =  rg.RichardsonSolver(rgeq).main_desolve(xistep = -0.01,rgwrite = tdafilebool, plotrgvarpath = moviede,plotepath = False)
-          tdafile.write('%f\t%s\n'  %(rgeq.getvar(dvar),' '.join(map(str,pairingdict))))
-        except (ValueError, np.linalg.linalg.LinAlgError,NameError) as e:
+          pairingdict  =  rgsolver.main_desolve(xistep = -0.01,rgwrite = tdafilebool, plotrgvarpath = moviede,plotepath = False)
+          tdasol = rgsolver.get_tda(None) 
+          tdafile.write('%f\t%s\t%s\n'  %(rgeq.getvar(dvar),' '.join(map(str,pairingdict)), ' '.join(map(str,(tdasol)))))
+        except (ValueError, np.linalg.linalg.LinAlgError,NameError , rg.XiError) as e:
           print 'problem in going back in xispace to xi = o to determine the corresponding tdadistribution'
           tdafile.write('#%f\t%s\n'  %(rgeq.getvar(dvar),'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
                 
@@ -421,12 +416,13 @@ def romboutsprob(g = -0.075, apair =10):
   rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)  
   return rgeq
   
-def picketfence(hamiltonian = 'r' , alevel = 12,g = -1.,eta = 1.):
+def picketfence(hamiltonian = 'r' , alevel = 12,g = -1.,eta = 1., apair = None):
   #little toy problem introduced by sambataro:2008
   eendlev = np.arange(1,alevel+1)
   seniority = zeros(alevel,float)
   degeneration = np.ones(alevel)*2
-  apair = alevel/2
+  if apair == None:
+    apair = alevel/2
   if hamiltonian == 'r':
     rgeq = rg.RichRedBcs(eendlev,degeneration, seniority,g,apair)
   elif hamiltonian == 'f':
