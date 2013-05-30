@@ -69,6 +69,9 @@ class RichardsonEq(object):
   def getvar(self,var):
     #handy to create general programs
     return getattr(self,var)
+
+  def get_solutions(self):
+    return self.rgsolutions
   
   def setvar(self,var,val):
     setattr(self,var,val)
@@ -116,7 +119,10 @@ class RichRedBcs(RichardsonEq):
     
   def get_energy(self):
     return sum(self.rgsolutions.real)
-    
+  
+  def calc_coef(self, tdasol):
+    return 1./(2. * self.energiel- tdasol)
+
   def near_tda(self,tdasolreal,tdadict):
     """
     gives the solution of the RG equations when XI is very small see the notes of S. De Baerdemacker
@@ -188,6 +194,9 @@ class RichFacInt(RichardsonEq):
     
   def get_energy(self):
     return sum(self.rgsolutions.real)-self.eta*sum(self.energiel*self.energiel*(1./4.*self.ontaardingen-1./2.*self.senioriteit))
+
+  def calc_coef(self, tdasol):
+    return  self.energiel/(self.eta*self.energiel*self.energiel- tdasol)    
     
   def near_tda(self,tdasolreal,tdadict):
     """
@@ -271,7 +280,7 @@ class RichardsonSolver(object):
     #if that dictionary is not yet changed after initialisation then all tdasolutions are returned
     return self.tda.bisect_tda(tdadict)
   
-  def change_tdadict(self,tdad):
+  def set_tdadict(self,tdad):
     self.tda.set_tdadict(tdad)
   
   def set_xisolution(self,erg):
@@ -336,7 +345,7 @@ class RichardsonSolver(object):
     conarray = [] 
     testend = False
     while(self.richeq.xi != xiend):
-      print 'xi', self.richeq.xi 
+      #print 'xi', self.richeq.xi 
       if ((self.richeq.xi + xistep >= xiend and xistep > 0) or (self.richeq.xi +xistep <= xiend and xistep <0 ) ) and testend == False:
         xistep /= 100. ; testend = True ; conarray = []
       rgsol = self.assurecontinuity(conarray,xistep,xiend,crit)
@@ -502,7 +511,7 @@ class RichardsonSolver(object):
     self.richeq.xi = 5.992003000000000027e-6
     xiarg = {'xiend' : xival , 'xistep' : xistep}
     rgsol = self.richeq.solve(self.richeq.near_tda(self.get_tda(tdadict),tdadict)) ; self.set_xisolution(rgsol) 
-    self.change_tdadict(tdadict)
+    self.set_tdadict(tdadict)
     try:
       self.change_xi(xiarg,crit = ccrit)
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
@@ -513,7 +522,7 @@ class RichardsonSolver(object):
       if plotrgvarpath: self.plotrgvarsxi(xlim = xlim , ylim = ylim)
       if plotepath: self.plotexi()
     print  self.richeq.get_energy()
-    return self.richeq.get_energy(),self.richeq
+    return self.richeq
     
 def maintest():
   '''
@@ -536,16 +545,16 @@ def maintest():
   g = -0.075
   '''
   eta = 1.
-  g = -0.109150
+  g = -0.0001
   #tdastartd = {0:0,1:2,2:0,3:0,4:1,5:0}
-  tdastartd = {0:3,1:2,2:0,3:1,4:0,5:0}
+  tdastartd = {0:1,1:1,2:1,3:0,4:1,5:1 , 10:1}
   alevel = len(eendlev)
   #print ontaardingen,senioriteit,eendlev
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
   rgeq = RichFacInt(eendlev,ontaardingen,senioriteit,g,eta,apair)
   a = RichardsonSolver(rgeq)
-  energie,rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
-  tdad  = a.main_desolve(xistep = -0.01,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None,xiend = 0.)
+  rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
+  tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
   print tdad 
 
 def test_copy():

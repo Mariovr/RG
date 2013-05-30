@@ -86,8 +86,10 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     crit = abs((rgeq.g+end)/10.)/10.
     if n > 10.:
       crit *= 10.
-    if n > 100:
+    if n > 1000:
       crit *= 10.
+    if n > 10000:
+      crit /= 100.
     n = int(abs(end-rgeq.g)/abs(stepg)) + 1
     phis = abs(rgeq.g+end)/(complexstepd*2.) #step of phi the complex variable
   assert(rgeq.rgsolutions is not None)
@@ -725,7 +727,7 @@ def continuity_check(arraysol, rgeq,crit = 1.6,dvar = 'g'):
   else:
     for i in range(grootte-1): 
       adapter += abs(arraysol[i].getvar(dvar)- arraysol[i+1].getvar(dvar)) 
-      meand += abs(arraysol[i].energy - arraysol[i+1].energy)
+      meand += abs(arraysol[i].energy - arraysol[i+1].energy)+ 0.001 #the + 0.001 is for the case if all elements in carray are equal what happens at very low g and increasing xi
     verschil = abs(arraysol[-1].energy - rgeq.energy)
     adapter = abs(arraysol[-1].getvar(dvar) - rgeq.getvar(dvar))*(grootte-1)/adapter
     if adapter < 1: adapter = 1 

@@ -12,6 +12,7 @@ from rgfunctions import *
 from plotfunctions import *
 import richardsongaudin as rg
 import newtonraphson as nr
+import overlaps as ov
 
 def main():
   """
@@ -19,9 +20,9 @@ def main():
   """
   kp =True #for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
-  probname = 'testchanges' #adds to the directory name where all the output data is going to be stored
+  probname = 'testoverlappicketfence126' #adds to the directory name where all the output data is going to be stored
   afh = {'start':0. , 'end':1. , 'step':0.01} ; spkar = 'xo' #characterizes the sp levels in the file as run = 'f' and input is a filename
-  step = {'n': -0.0001,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.0750} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  step = {'n': -0.001,'p': 0.003}; ende = {'p' : 10. , 'n' : -2.0000} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
   rgw = True ; mov = False ; tdaf = False
   sign = 'n' #for runstring = k determines which instances of step and ende it receives
   npair =6#if you use a filename as input or gives the number of pairs in the rombout system
@@ -166,7 +167,8 @@ def generating_data(rgeq,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namep
       """      
       try:
         if rgeq.energy is None: #We just started so we need to find a startsolution but if kp is True we win some time by immediately raising a valueError this timewinst is significant for large systems
-          energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict,plotrgvarpath = False,xlim = None , ylim = None)          
+          rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict,plotrgvarpath = False,xlim = None , ylim = None)          
+          energierg = rgeq.get_energy()
         else:
           rgeq.energiel = energielev
           energierg = rgeq.solve()
@@ -188,13 +190,14 @@ def generating_data(rgeq,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namep
               i += 1           
         else:
           try:
-            energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
+            rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
+            energierg = rgeq.get_energy()
           except:
             print '######################################################'
             print 'ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR'
             print ' ####################################################'
       #little discontinuity check
-      if (energierg + discstep < saveopl or energierg - discstep > saveopl) and saveopl is not 123456.:
+      if (rgeq.get_energy() + discstep < saveopl or rgeq.get_energy() - discstep > saveopl) and saveopl is not 123456.:
         print '######################################################################################'
         print 'we arrived at a discontinuity'
         print '######################################################################################'
@@ -212,7 +215,8 @@ def generating_data(rgeq,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namep
             except (ValueError,np.linalg.linalg.LinAlgError) as e:
               i += 1
         else:
-          energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
+          rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
+          energierg = rgeq.get_energy()
       saveopl = energierg
       if energierg is not None:
         plotenergyfile.write("%f\t%f\t%f\t%f\t%f\t%f" %(defvar, energierg-bb, energierg,bb , d,nlevel))
@@ -229,7 +233,7 @@ def generating_data(rgeq,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namep
     plotrgvars(rgeq.apair,ref = namepf,afhvar = afhxas,namerg = 'rgvar%f%s' %(rgeq.g,exname),istart = 6 )
   ifile.close()
 
-def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False):
+def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , overlaps = None):
   conarray = [] # array that is used to check continuity
   plotenergyfile = open("plotenergy%s.dat" %exname,"w") #opening of the file that's going to contain the results
   if tdafilebool is True:
@@ -250,7 +254,8 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
   #start from the previous solution if the stepwidth of the dependent variable of the file is low enough (WATCH OUT for critical points)
   if rgeq.rgsolutions is None: 
-    energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival)   
+    rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival)   
+    energierg = rgeq.get_energy()
   rgeqsaveback = None
   while (rgeq.getvar(dvar) != end ):  
     savergsolutions = np.copy(rgeq.rgsolutions) ; savedepvar = rgeq.getvar(dvar) #important if continuity check fails
@@ -296,11 +301,15 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
               complexstep = 10000
               step = savestep
             send += savestep/2.
+            if n < 1000:
+              step /= 2.
+            if n > 1000:
+              step *= 5.
             assert(isinstance(rgeqsaveback.g,complex))
             energierg,rgeq, rgeqsaveback = littleLoop(rgeqsaveback,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
             lastkp = True
             if n > 1000:
-              print 'fatal error in program to many iterations in generating_datak' ; sys.exit(1) 
+              print 'n is starting to get large: %g  maybe you should consider changing the parameters that determine the circumvention of critical points' %n
           if not continuity_check(conarray, rgeq,crit = 1.9 * n % 4 ,dvar = dvar):
             print'problems with continuity of the found solutions %s with the following richardsoneq %s' %(str(conarray),str(rgeq))
             plotenergyfile.write('# discontinuity at %s  , with n = %g , send = %f , complexstep = %f , step = %f' %(str(rgeq.getvar(dvar)), n , send , complexstep , step))
@@ -327,6 +336,12 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
         except (ValueError, np.linalg.linalg.LinAlgError,NameError , rg.XiError) as e:
           print 'problem in going back in xispace to xi = o to determine the corresponding tdadistribution'
           tdafile.write('#%f\t%s\n'  %(rgeq.getvar(dvar),'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
+      #if overlaps is not None:
+      #  rgeqstate = ov.State_Calculator(rgeq,rgeq.apair)
+      #  tda = rg.RichardsonSolver(rgeq).tda
+      #  tda.bisect_tda()
+      #  tdastate = ov.State_Calculator(tda, rgeq.apair , tdadict = pairingd  )
+        
                 
     plotenergyfile.write("%f\t%f\t%f" %(rgeq.getvar(dvar), energierg-bb, energierg)) 
     if rgwrite is True:
@@ -344,6 +359,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     os.chdir(olddir) #because we were in the movie dir but we want our other plots in the parentdir
   if rgwrite == True:
     plotrgvars(rgeq.apair, ref = "plotenergy%s.dat" %exname, afhvar = dvar,namerg = 'rgvar%s' %exname,istart = 3) 
+
   return energierg,rgeq  
     
 def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n') :
@@ -486,7 +502,8 @@ def testcircumvent():
   xival = 0.1
   while xival <= 1.:
     g = -1.0007
-    energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,gwrite = False,xistep = 0.01,xival=xival)   
+    rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,gwrite = False,xistep = 0.01,xival=xival)   
+    energierg = rgeq.get_energy()
     while g.imag < abs(g.real/10.):
       rgeq.g += 1j*0.01
       energierg,rgvar = rgeq.solve()
@@ -561,7 +578,21 @@ def testrestart():
   generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
   generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+name+'.dat')
 
-
+def stijnijzer():
+  deg = [6,4,2,8,4,6,2,2,6,10]
+  sen = [0,0,0,0,0,0,0,0,0,0]
+  elevel = [-21.5607 , -19.6359 , -19.1840 , -10.4576, -8.4804 , -7.7003 , -7.65120 , -0.3861 , 0.2225 , 0.5631]
+  ap = 11
+  al = 10
+  g = -2.
+  g = -0.9233
+  tdadict = {0:ap}
+  rgvars = readrgvarsplote(-0.9233 , 'plotenergy1.dat')
+  rgeq = rg.RichRedBcs(elevel, deg , sen , g , ap , rgsol = rgvars , xi = 1.)
+  print rgeq.solve()
+  exname = 'nauwkeurigomgekeerd'
+  generating_datak(rgeq, tdadict , 'g' ,-0.000001 , -9.23435 , tdafilebool = True , exname = exname)
+  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+exname+'.dat')
 
 if __name__ == "__main__":
   #testrestart()
@@ -571,3 +602,4 @@ if __name__ == "__main__":
   #addlevel() #function in rgfunctions
   #facintmain()
   #allstatesoneg()
+  #stijnijzer()

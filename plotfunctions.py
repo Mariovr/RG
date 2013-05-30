@@ -372,9 +372,9 @@ def main(option, args):
     
   if option == 'rgvar':
     apair, exname = args[0:2]
-    ref = 'plotenergy.dat';  afhvar = 'g' ; namerg = 'rgvarshort' 
+    ref = 'plotenergynauwkeurigomgekeerd.dat';  afhvar = 'g' ; namerg = 'rgvarnauw' 
     try:
-      begin =int(args[2])
+      begin = sys.argv[1]
       stop = args[3]
     except:
       begin = 0
@@ -406,6 +406,7 @@ if __name__ == '__main__':
   option = 'rgvar'
   #args =allstates0.dat, 6,4000, None
   args = 6 , ''
+  args = 10 , ''
   main(option,args)
   #plot_spectrumxichange(sys.argv[1],sys.argv[2])  
   

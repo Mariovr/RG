@@ -20,7 +20,11 @@ def collectrgcloud(filepath, g , npair , collectlist):
   print 'we are collecting the information of the rg solutions at one particular g : %f in the list collectlist' %g
   data = rg.readlevels(filepath,g,nauw = 0.003)
   #state = extract(filepath,r'.+(\{.+\})',group = 1)
-  file = open('correspondentie.dat','r')
+  try:
+    file = open('correspondentie.dat','r')
+  except IOError:
+    printtda()
+    file = open('correspondentie.dat','r')
   idnum = re.search( r'/(\d+)/.+dat$',filepath).group(1)
   idnum = int(idnum)+1
   for line in file:
