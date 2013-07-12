@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import numpy as np
 import pylab as pl
 import os,sys,shutil
@@ -129,15 +128,33 @@ def generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False):
     except:
       print 'the plot of d failed'
 
-def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar',stop = None,begin = 0,istart = 3):
+def plotrgvarscplane(apair, interval = (-20 , 0) ,infile = 'plotenergy.dat', name = 'rgplane', istart = 3 ):
+  dataf , kpunten = readdata(infile, fast = False)
+  pl.figure()
+  for j in xrange(len(kpunten)):
+    for i in xrange(istart,2*apair+istart,2):
+      pl.plot(dataf[kpunten[j][1] + interval[0]:kpunten[j][1] + interval[1],i],dataf[kpunten[j][1]+interval[0]:kpunten[j][1] + interval[1],i+1] , 'b')
+    pl.xlabel('real part rgvars (a.u.)')
+    pl.ylabel('imaginary part rgvgrs (a.u.) ')
+    pl.title('Richardson-Gaudin variables')
+    pl.savefig('complexplane%d.png' % kpunten[j][0])
+    pl.close()
+
+def readdata(ref = 'plotenergy.dat' , fast =True):
   plotf = open(ref, 'r')
+  kpunten = []
   try:
+    if fast == False:
+      raise ValueError
     dataf = np.loadtxt(plotf,comments = '#')
   except:
     dataf = np.array([])
     plotf.seek(0) #go back to beginning of file
     for line in plotf:
       if line[0] == '#':
+        analyse = re.search(r'^#\s+((-|\d)\d+\.*\d*)\s+kritisch',line)
+        if analyse:
+          kpunten.append(float(analyse.group(1)))
         continue
       pline = np.array(map(float,line.split()))
       if len(dataf) <= 1:
@@ -147,7 +164,26 @@ def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar'
           dataf = np.vstack((dataf,pline))
         except:
           continue
-    print np.shape(dataf)
+  plotf.close()
+  return dataf, kpunten
+
+def plotintofmotion(alevel, apair , ref = 'plotenergy.dat' , afhvar =  'g (a.u.)',namerg = 'integralsofmotion',stop = None,begin = 0,istart = 3):
+  istart = istart + 2*apair
+  dataf , kpunten = readdata(ref)
+  pl.figure()
+  for i in xrange(istart,alevel+istart):
+    if stop is None:
+      pl.plot(dataf[begin:,0],dataf[begin:,i],'b')
+    else:
+      pl.plot(dataf[begin:stop,0],dataf[begin:stop,i])
+  pl.xlabel(afhvar)
+  pl.ylabel('integrals of motion (a.u.)')
+  pl.title('integrals of motion of the Richardson-Gaudin model')
+  pl.savefig('%s.png' %namerg )
+  pl.close()
+
+def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar',stop = None,begin = 0,istart = 3 , cplane = False):
+  dataf , kpunten = readdata(ref)
   pl.figure()
   for i in xrange(istart,2*apair+istart,2):
     if stop is None:
@@ -170,6 +206,18 @@ def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar'
   pl.title('Richardson-Gaudin variables')
   pl.savefig('im%s.png' %namerg)
   pl.close()
+  if cplane:
+    pl.figure()
+    for i in xrange(istart,2*apair+istart,2):
+      if stop is None:
+        pl.plot(dataf[begin:,i],dataf[begin:,i+1],'b')
+      else:
+        pl.plot(dataf[begin:stop,0],dataf[begin:stop,i])
+    pl.xlabel('real part rgvars (a.u.)')
+    pl.ylabel('imaginary part rgvgrs (a.u.) ')
+    pl.title('Richardson-Gaudin variables')
+    pl.savefig('complexplane%s.png' %namerg)
+    pl.close()
 
 def plotrgvarsxi(apair,eendlev,g,ref = 'rergvarxi.dat' , namerg = 'rgvarXI'):
   plotre = open(ref, 'r')
@@ -365,14 +413,13 @@ def main(option, args):
     print nlevel,npair,dvar
     generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False)
 
-  
   if option == 'addlevel':
     g = args[0]
     addlevel(interactionconstant = g)
     
   if option == 'rgvar':
     apair, exname = args[0:2]
-    ref = 'plotenergynauwkeurigomgekeerd.dat';  afhvar = 'g' ; namerg = 'rgvarnauw' 
+    ref = 'plotenergy.dat';  afhvar = 'g' ; namerg = 'rgvarnauw' 
     try:
       begin = sys.argv[1]
       stop = args[3]
@@ -384,7 +431,10 @@ def main(option, args):
   if option is 'rgcloud':
     name, npair,g,sen = args 
     plotrgcloud(name,npair,g,sen)
-  return 0
+  
+  if option is 'cprgvar':
+    npair , name = args
+    plotrgvarscplane(npair , (-20,0), infile = name)
   
 def importmain():
   option = 'rgcloud'
@@ -403,11 +453,8 @@ if __name__ == '__main__':
   args = -0.137
   main(option,args)
   '''
-  option = 'rgvar'
+  option = 'cprgvar'
   #args =allstates0.dat, 6,4000, None
-  args = 6 , ''
-  args = 10 , ''
+  args = 7, 'plotenergy7.dat'
   main(option,args)
   #plot_spectrumxichange(sys.argv[1],sys.argv[2])  
-  
-  

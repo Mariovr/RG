@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-import math
 import numpy as np
 from numpy import array, zeros, ones, arange,copy
-from numpy import append, delete, polynomial # here are the numpy imports that are at this time 23/08/2012 not compatibel with pypy
+from numpy import append, delete, polynomial #not compatible with pypy 1/10/2012 
+from math import sqrt
 
 import copy
 from tdasolver import *
@@ -90,7 +90,16 @@ class RichardsonEq(object):
     self.energy = self.get_energy()
     return self.energy
 
-    
+  def intofmotion(self):
+    """
+    Calculates the integrals of motion of the Richardson-Gaudin models
+    Remark : we need to call the xij function with 2epsilon_j and x_alpha is RG var
+    RETURNS: a vector with all the integrals of motion
+    """
+    di = 1./4.*self.ontaardingen - self.senioriteit *1./2.
+    etrans = self.etrans()
+    return di*(-1 + 2*self.g*array([sum([self.zij(etrans[i],etrans[k])*di[k] for k in range(self.alevel) if k != i]) for i in range(self.alevel)]) + 2*self.g*array( [sum([self.zij(self.rgsolutions[b],etrans[i]) for b in range(self.apair) ]) for i in range(self.alevel)]))
+
 class RichRedBcs(RichardsonEq):
   """
   Class that defines the general Richardson-Gaudin equations produced as bethe ansatz equations
@@ -121,7 +130,21 @@ class RichRedBcs(RichardsonEq):
     return sum(self.rgsolutions.real)
   
   def calc_coef(self, tdasol):
+    """
+    Used in overlaps.py to calculate the eigenstates but is ugly: ->
+    better use the xij and zij functions also to calculate the overlap
+    for reasons of simplicity and consistency
+    """
     return 1./(2. * self.energiel- tdasol)
+
+  def zij(self, i,j):
+    """
+    REMARK for the rational Richardson-Gaudin model xij = zij 
+    """
+    return 1./(i-j)
+
+  def etrans(self):
+    return 2. * self.energiel
 
   def near_tda(self,tdasolreal,tdadict):
     """
@@ -139,10 +162,10 @@ class RichRedBcs(RichardsonEq):
         coeff[n] = 1
         rootshermite = polynomial.hermite.hermroots(coeff)
         if defineupdateE == False:
-          updateE = tdasol + 1j*math.sqrt(2.*self.xi/ai)*rootshermite
+          updateE = tdasol + 1j*sqrt(2.*self.xi/ai)*rootshermite
           defineupdateE = True
         else:
-          updateE = append(updateE,tdasol+ 1j*math.sqrt(2.*self.xi/ai)*rootshermite)        
+          updateE = append(updateE,tdasol+ 1j*sqrt(2.*self.xi/ai)*rootshermite)        
     print """the near_tda approximate solutions:
       *******************************************"""
     print updateE
@@ -196,8 +219,22 @@ class RichFacInt(RichardsonEq):
     return sum(self.rgsolutions.real)-self.eta*sum(self.energiel*self.energiel*(1./4.*self.ontaardingen-1./2.*self.senioriteit))
 
   def calc_coef(self, tdasol):
+    """
+    Used in overlaps.py to calculate the eigenstates but is ugly: ->
+    better use the xij and zij functions also to calculate the overlap
+    for reasons of simplicity and consistency
+    """
     return  self.energiel/(self.eta*self.energiel*self.energiel- tdasol)    
     
+  def zij(self, i , j):
+    return (i+j)/(i-j)
+
+  def etrans(self):
+    """
+    take eta always positive because otherwise there arise some problems
+    """
+    return self.energiel*self.energiel*self.eta
+
   def near_tda(self,tdasolreal,tdadict):
     """
     gives the solution of the RG equations when XI is very small see the notes of S. De Baerdemacker
@@ -217,14 +254,14 @@ class RichFacInt(RichardsonEq):
         if defineupdateE == False:
           if tdas > 0:
             if self.eta > 0 :
-              updateE = tdasol - 1.j*math.sqrt(2.*self.xi/(ai*self.eta))*np.sqrt(tdasol)*rootshermite
+              updateE = tdasol - 1.j*sqrt(2.*self.xi/(ai*self.eta))*np.sqrt(tdasol)*rootshermite
             else:
-              updateE = tdasol + math.sqrt(2.*self.xi/(ai*self.eta*-1.))*np.sqrt(tdasol)*rootshermite
+              updateE = tdasol + sqrt(2.*self.xi/(ai*self.eta*-1.))*np.sqrt(tdasol)*rootshermite
           else:
             if self.eta > 0 :
-              updateE = tdasol + math.sqrt(2.*self.xi/(ai*self.eta))*np.sqrt(abs(tdasol))*rootshermite
+              updateE = tdasol + sqrt(2.*self.xi/(ai*self.eta))*np.sqrt(abs(tdasol))*rootshermite
             else:
-              updateE = tdasol + 1.j* math.sqrt(2.*self.xi/(ai*self.eta*-1.))*np.sqrt(abs(tdasol))*rootshermite
+              updateE = tdasol + 1.j* sqrt(2.*self.xi/(ai*self.eta*-1.))*np.sqrt(abs(tdasol))*rootshermite
           defineupdateE = True
         else:
           if tdas > 0:
@@ -545,17 +582,18 @@ def maintest():
   g = -0.075
   '''
   eta = 1.
-  g = -0.0001
+  g = -1.0000
   #tdastartd = {0:0,1:2,2:0,3:0,4:1,5:0}
-  tdastartd = {0:1,1:1,2:1,3:0,4:1,5:1 , 10:1}
+  tdastartd = {0:apair }
   alevel = len(eendlev)
   #print ontaardingen,senioriteit,eendlev
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
-  rgeq = RichFacInt(eendlev,ontaardingen,senioriteit,g,eta,apair)
+  rgeq = RichRedBcs(eendlev,ontaardingen,senioriteit,g,apair)
   a = RichardsonSolver(rgeq)
   rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
-  tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
-  print tdad 
+  print rgeq.intofmotion()
+  #tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
+  #print tdad 
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)

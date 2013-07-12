@@ -104,10 +104,12 @@ def readrgvarsplote(plotf , linespacing = 1):
   """
   for i in range(linespacing):
     line = plotf.readline()
+    if line == '':
+      return None , None #end of file is reached
   while line[0]== '#':
     line = plotf.readline()
-  if line == '':
-    return None , None #end of file is reached
+    if line == '':
+      return None , None #end of file is reached
   data = line.split()
   afhvar = float(data[0])
   mixdata = map(float,data)[3:]
@@ -148,11 +150,21 @@ def plotoverlaps(tdadictlist , cvar , filen = 'overlap.dat'):
   fontL = FontProperties()
   fontL.set_size('x-small')
   ax.legend(loc = 2 , prop = fontL , bbox_to_anchor = (1.00,1.00) , fancybox = True , shadow = True)
-  pl.xlabel(cvar)
+  pl.xlabel(cvar )
   pl.ylabel('overlaps rg with tdastate')
   pl.title('Overlap tdastate with Richardson-Gaudin state')
   pl.savefig('%s.png' %filen.strip('.dat'))
   pl.close()
+
+def windfile(infile , waardeafh , nauw = 1e-7):
+  while True and waardeafh != None:
+    line = infile.readline()
+    test = line.split()
+    if test[0][0] != '#':
+      if (waardeafh >= float(test[0])-nauw/2. and waardeafh <= float(test[0])+nauw/2. ) or waardeafh == None:
+        waarden = map(float,line.split())
+        break
+  return infile
 
 def main():
   #create_tdafile(rgeq , 'g' ,filen = 'alltdasredbcspicketfence.dat')
@@ -160,16 +172,18 @@ def main():
   ont = np.ones(12)*2.
   sen = np.zeros(12)
   apair = 6
-  g = -0.001
+  g = -0.500050  
   cvar = 'g'
   eta = 1.
   filen = 'plotenergyfac.dat'
-  outputf = 'overlapfac.dat' 
+  outputf = 'overlapfac2.dat' 
   richvars = open(filen,'r')
   outfile = open(outputf, 'w')
   tdadictlist = [{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}, {0:6} , {0:1 , 1:5} , {0:5 , 1:1},{0:1 , 1:1 , 2:4} ,{0:1 , 1:1 , 2:1 , 3:1 ,4:2},{0:4 , 1:1 , 2:1}, {0:2 , 1:1 , 2:1 , 3: 2}, {0:2 , 1:1 , 2:1 , 3:1 ,4:1},{0:3 , 1:1 , 2:1 , 3:1 },{0:1 , 1:1 , 2:1 , 3:3 }]
+  richvars = windfile(richvars , None )
   dvar , rgvars = readrgvarsplote(richvars , linespacing = 1) 
-  rgeq = rg.RichFacInt(energiel, ont , sen , g ,eta, apair,rgsol = rgvars )
+  rgeq = rg.RichFacInt(energiel, ont , sen , g ,eta, apair,xi = 1.,rgsol = rgvars )
+  rgeq.setvar(cvar,dvar)
   tda = rg.RichardsonSolver(rgeq).tda
   tda.bisect_tda()
   outfile.write(str(rgeq))
@@ -190,10 +204,10 @@ def main():
 
   richvars.close()
   outfile.close()
-  plotoverlaps(tdadictlist ,cvar , filen = outfile)
+  plotoverlaps(tdadictlist ,cvar , filen = outputf)
 
 if __name__ == "__main__":
-  main()
-  #tdadictlist = [{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}, {0:6} , {0:1 , 1:5} , {0:5 , 1:1},{0:1 , 1:1 , 2:4} ,{0:1 , 1:1 , 2:1 , 3:1 ,4:2},{0:4 , 1:1 , 2:1}, {0:2 , 1:1 , 2:1 , 3: 2}, {0:2 , 1:1 , 2:1 , 3:1 ,4:1},{0:3 , 1:1 , 2:1 , 3:1 },{0:1 , 1:1 , 2:1 , 3:3 }]
-  #plotoverlaps(tdadictlist , 'g' , filen = 'overlap.dat')
+  #main()
+  tdadictlist = [{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}, {0:6} , {0:1 , 1:5} , {0:5 , 1:1},{0:1 , 1:1 , 2:4} ,{0:1 , 1:1 , 2:1 , 3:1 ,4:2},{0:4 , 1:1 , 2:1}, {0:2 , 1:1 , 2:1 , 3: 2}, {0:2 , 1:1 , 2:1 , 3:1 ,4:1},{0:3 , 1:1 , 2:1 , 3:1 },{0:1 , 1:1 , 2:1 , 3:3 }]
+  plotoverlaps(tdadictlist , 'g' , filen = 'overlapfacintpicketfence.dat')
 

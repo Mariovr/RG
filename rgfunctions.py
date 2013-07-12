@@ -153,25 +153,31 @@ def genstartsol(rgeq,d,end,pairingd = None , begin = None):
   variables at the corresponding solution, float(begin) the interaction constant of the corresponding solution
   '''
   rgeq.rgsolutions = None ; rgeq.g = begin ;rgeq.xi = 0.
+  if isinstance(rgeq, rg.RichRedBcs):
+    multiple = 1.
+  elif isinstance(rgeq,rg.RichFacInt):
+    multiple = 10. * d
   if begin is None: #search for the optimal start g
-    if d/2. > abs(end):
+    if d/(2.*multiple ) * 10. > abs(end):
       if pairingd is None:
         pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen,rgeq.senioriteit)
-      if end > 0 : rgeq.g = 0.01  #takes into account positive interaction constants and makes sure we increase the interaction constant
-      else: rgeq.g = -1.
+      if end > 0 : #takes into account positive interaction constants and makes sure we increase the interaction constant
+        rgeq.g = 0.001/multiple
+      else: 
+        rgeq.g = -0.001/multiple
       assert(abs(rgeq.g) < abs(end))
     else:
       if pairingd is None:
         pairingd = {}
         pairingd[0] = rgeq.apair
       if end > 0: rgeq.g = abs(math.floor(d)*1.5) 
-      else: rgeq.g = -abs(math.floor(d)*1.5)    
+      else: rgeq.g = -abs(math.floor(d)*1.5 )    
       assert(abs(rgeq.g) > abs(end)) # otherwise it's useless to go to smaller ic (ic > 0)
   print 'in genstartsol the RG equations are now %s' %str(rgeq)
   while(rgeq.xi != 1.0):
     try:
       print "searching for first solution"
-      energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd)
+      rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd)
       print 'We found a good startsolution'
     except (ValueError,np.linalg.linalg.LinAlgError) as e:
       if abs(rgeq.g) < abs(end):

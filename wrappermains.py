@@ -3,7 +3,7 @@ import os
 
 from rgfunctions import *
 
-def main():
+def mainpairchange():
   name = 'groundstateallpairsrombouts2010' 
   generate_dir(name,None,None) #if filename is None nothing will be copied in the directory see the implementation of generate_dir in rgfunctions
   for ap in range(1,40):
@@ -11,6 +11,15 @@ def main():
     print 'we execute %s' %cmd
     os.system(cmd)
     
+def main():
+  name = 'balktosquaredifferentgfacint1'
+  fname = 'vierkantrechthoekconstantV'
+  generate_dir(name,fname,None)
+  for interaction in  [-10000]:
+    cmd = 'python ../writepairing.py -r f -f %s -H r -i %f' %(fname , interaction )
+    print 'we execute %s' %cmd
+    os.system(cmd)
 
 if __name__ == "__main__":
   main()
+

@@ -3,8 +3,6 @@ import numpy as np
 import pylab as pl
 
 #REMARK don't forget to install mencoder on the computer that exectutes this script otherwise no movie
-
-
 def makemovie():
   # makes a movie from all the .png files in the current directory
   print 'Starting to create a movie, with all the .png files in directory: %s ' %str(os.getcwd())
