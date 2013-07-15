@@ -4,8 +4,6 @@ import pylab as pl
 import os,sys,shutil
 import re
 
-import tdasolver as tda
-
 def plot_2col(name,tit = 'title',xname = 'independendvar',yname = 'dependendvar'):
   print('start with the generation of a plot with plot_2col in rgfunctions.py')
   plotdata = open(name,'r')
@@ -27,12 +25,54 @@ def plot_2col(name,tit = 'title',xname = 'independendvar',yname = 'dependendvar'
   pl.title(tit)
   pl.savefig(name+'.png' )
   pl.close()
-  
-  
-def generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = True):
+
+def plot_spectrumxichange(dirname,search):
   """
-  some nice plots to visualize the data with matplotlib, plotg = true if you plot the energylevels of the reduced
-  BCS Hamiltonian of the sp levels of a geometry file
+  Plot the entire spectrum at a particular g in function of xi
+  args = directory with all the data
+  """
+  dirlist =	os.listdir(dirname)
+  filelist = [i for i in dirlist if search in i]
+  pl.figure(0)
+  xidata = []
+  edata = []
+  countgood = 0
+  countbad = 0
+  for j in filelist:
+    file = open(j,'r')
+    print 'working in file %s' %(j)
+    for line in file:
+      try: float(line[0])
+      except: continue
+      data = line.split()
+      xidata.append(float(data[0]))
+      edata.append(float(data[1]))
+    if xidata[-1] == 1.: 
+      pl.plot(xidata,edata,'b') 
+      countgood += 1
+      print j , countgood , 'good solution'
+    else: 
+      pl.plot(xidata,edata,'r') 
+      print j, countbad, 'bad solution'
+      countbad += 1
+    file.close()
+    xidata = [] ; edata = []
+  
+  print 'We found %g good solutions and %g tda startdistributions that broke down before xi = 1, we hope that\'s what you expected' %(countgood,countbad)
+  pl.xlabel(r'$\xi$')
+  pl.ylabel(r'energy spectrum (a.u.)')
+  pl.title(r'All tda start distributions $\xi$')
+  #Create custom artists
+  goodline = pl.Line2D((0,1),(0,0), color='b') 
+  badline = pl.Line2D((0,1),(0,0), color='r')
+  
+  pl.legend([goodline,badline],['solution','breakdown'])
+  pl.savefig('spectrum%s.png' %(search.translate(None,'.')))
+  pl.close()
+  
+def generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False):
+  """
+  some nice plots to visualize the data with matplotlib, plotg = true if you plot the energylevels of the sp levels of a geometry file
   """
   print ('start with the generation of plots')
   plotdata = open(name, 'r')
@@ -54,40 +94,25 @@ def generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = True)
       ee.append(float(data[4]))
     except:
       pass
-    ##cc.append(float(data[2])) 
+    #cc.append(float(data[2])) 
+  #plot of groundstate energy
   pl.figure()
   pl.plot(aa,bb,'r')
-  if plotg: 
-    pl.xlabel(afhxas)
-    pl.ylabel('condensation energy (a.u.)')
-    pl.title('interaction constant = %f (a.u.)' %(dvar))
-    pl.savefig('c%s.png' %name )
-    pl.close()
-  else:
-    pl.xlabel('g (a.u.)')
-    pl.ylabel('condensation energy (a.u.)')
-    pl.title('%s = %f (a.u.)' %(afhxas,dvar))
-    pl.savefig('c%s.png' %name )
-    pl.close()
-
+  pl.xlabel(dvar+' (a.u.)')
+  pl.ylabel('condensation energy (a.u.)')
+  pl.savefig('c%s.png' %name )
+  pl.close()
+  #plot of condensation energy
   pl.figure()
   pl.plot(aa,cc,'r')
-  if plotg:
-    pl.xlabel(afhxas)
-    pl.ylabel('energy spectrum (a.u.)')
-    pl.title('interaction constant = %f (a.u.)' %(dvar))
-    pl.savefig('g%s.png' %name)
-    pl.close()
-  else:
-    pl.xlabel('g (a.u.)')
-    pl.ylabel('groundstate energy (a.u.)')
-    pl.title('%s = %f (a.u.)' %(afhxas,dvar))
-    pl.savefig('g%s.png' %name ) 
-    pl.close()
+  pl.xlabel(dvar+' (a.u.)')
+  pl.ylabel('energy (a.u.)')
+  pl.savefig('g%s.png' %name)
+  pl.close()
   if plotg:
     pl.figure()
     pl.plot(aa,dd,'r')
-    pl.xlabel(afhxas)
+    pl.xlabel(dvar)
     pl.ylabel('energy of the non-interacting groundstate (a.u.)')
     pl.title('aantal paren = %f' %(npair))
     pl.savefig('nig%s.png' %name)
@@ -95,7 +120,7 @@ def generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = True)
     pl.figure()
     try:
       pl.plot(aa,ee)
-      pl.xlabel(afhxas)
+      pl.xlabel(dvar)
       pl.ylabel("d (a.u.)")
       pl.title("number of sp levels = %f" %nlevel)
       pl.savefig("%sd.png" % 'meanleveldistance')
@@ -103,9 +128,62 @@ def generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = True)
     except:
       print 'the plot of d failed'
 
-def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar',stop = None,begin = 0,istart = 3):
+def plotrgvarscplane(apair, interval = (-20 , 0) ,infile = 'plotenergy.dat', name = 'rgplane', istart = 3 ):
+  dataf , kpunten = readdata(infile, fast = False)
+  pl.figure()
+  for j in xrange(len(kpunten)):
+    for i in xrange(istart,2*apair+istart,2):
+      pl.plot(dataf[kpunten[j][1] + interval[0]:kpunten[j][1] + interval[1],i],dataf[kpunten[j][1]+interval[0]:kpunten[j][1] + interval[1],i+1] , 'b')
+    pl.xlabel('real part rgvars (a.u.)')
+    pl.ylabel('imaginary part rgvgrs (a.u.) ')
+    pl.title('Richardson-Gaudin variables')
+    pl.savefig('complexplane%d.png' % kpunten[j][0])
+    pl.close()
+
+def readdata(ref = 'plotenergy.dat' , fast =True):
   plotf = open(ref, 'r')
-  dataf = np.loadtxt(plotf,comments = '#')
+  kpunten = []
+  try:
+    if fast == False:
+      raise ValueError
+    dataf = np.loadtxt(plotf,comments = '#')
+  except:
+    dataf = np.array([])
+    plotf.seek(0) #go back to beginning of file
+    for line in plotf:
+      if line[0] == '#':
+        analyse = re.search(r'^#\s+((-|\d)\d+\.*\d*)\s+kritisch',line)
+        if analyse:
+          kpunten.append(float(analyse.group(1)))
+        continue
+      pline = np.array(map(float,line.split()))
+      if len(dataf) <= 1:
+        dataf = pline
+      else:
+        try:
+          dataf = np.vstack((dataf,pline))
+        except:
+          continue
+  plotf.close()
+  return dataf, kpunten
+
+def plotintofmotion(alevel, apair , ref = 'plotenergy.dat' , afhvar =  'g (a.u.)',namerg = 'integralsofmotion',stop = None,begin = 0,istart = 3):
+  istart = istart + 2*apair
+  dataf , kpunten = readdata(ref)
+  pl.figure()
+  for i in xrange(istart,alevel+istart):
+    if stop is None:
+      pl.plot(dataf[begin:,0],dataf[begin:,i],'b')
+    else:
+      pl.plot(dataf[begin:stop,0],dataf[begin:stop,i])
+  pl.xlabel(afhvar)
+  pl.ylabel('integrals of motion (a.u.)')
+  pl.title('integrals of motion of the Richardson-Gaudin model')
+  pl.savefig('%s.png' %namerg )
+  pl.close()
+
+def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar',stop = None,begin = 0,istart = 3 , cplane = False):
+  dataf , kpunten = readdata(ref)
   pl.figure()
   for i in xrange(istart,2*apair+istart,2):
     if stop is None:
@@ -128,28 +206,35 @@ def plotrgvars(apair,ref = 'plotenergy.dat',afhvar = 'g (a.u.)',namerg = 'rgvar'
   pl.title('Richardson-Gaudin variables')
   pl.savefig('im%s.png' %namerg)
   pl.close()
+  if cplane:
+    pl.figure()
+    for i in xrange(istart,2*apair+istart,2):
+      if stop is None:
+        pl.plot(dataf[begin:,i],dataf[begin:,i+1],'b')
+      else:
+        pl.plot(dataf[begin:stop,0],dataf[begin:stop,i])
+    pl.xlabel('real part rgvars (a.u.)')
+    pl.ylabel('imaginary part rgvgrs (a.u.) ')
+    pl.title('Richardson-Gaudin variables')
+    pl.savefig('complexplane%s.png' %namerg)
+    pl.close()
 
-def plotrgvarsxi(apair,eendlev,g,ref = 'rergvarxi.dat' , namerg = 'rgvarXI' , redbcs = True,eta = 1.):
+def plotrgvarsxi(apair,eendlev,g,ref = 'rergvarxi.dat' , namerg = 'rgvarXI'):
   plotre = open(ref, 'r')
-  datare = np.loadtxt(plotre,comments = '#')
+  datare = np.loadtxt(plotre)
   pl.figure()
-  irange = np.arange(3,2*apair+3,2)
-  def calc_sinr(i,red):
-    if red:
-      return eendlev[i]*2.
-    else:
-      return eendlev[i]*eendlev[i]*eta
+  irange = np.arange(1,2*apair+1,2)
   for i in irange:
     pl.plot(datare[0,i],datare[0,i+1],'g.', markersize = 10)
     pl.plot(datare[len(datare[:,0])-1,i],datare[len(datare[:,0])-1,i+1],'r.',mfc = 'None', markersize = 10)
     pl.plot(datare[:,i],datare[:,i+1],'b-')
   for i in range(len(eendlev)):
-    pl.axvline(x = calc_sinr(i,redbcs) , c= 'k' ,linestyle = '--')
+    pl.axvline(x = eendlev[i]*2. ,c=  'k',linestyle = '--')
   pl.xlabel('real part of rgvars (a.u)')
   pl.ylabel('imaginary part of rgvars (a.u.)')
   pl.title('Richardson-Gaudin variables at g = %f (xi in [0,1])' %(g))
-  #pl.xlim((2*eendlev[0]-5*(eendlev[1]-eendlev[0]),2*eendlev[-1]+0.5))
-  #pl.ylim((-20,20))
+  pl.xlim((2*eendlev[0]-5*(eendlev[1]-eendlev[0]),2*eendlev[-1]+0.5))
+  pl.ylim((-20,20))
   pl.savefig('%s.png' %namerg )
   pl.close() 
   
@@ -189,7 +274,7 @@ def plotrgcloud(name,npair,g,sen):
   pl.savefig('%s%s.png' %(namerg,sen ))
   pl.close()
 
-def generatePlotExited(nlevel,npair,afh,afhxas):
+def generatePlotExited(nlevel,npair):
   """
   some nice plots to visualize the data with matplotlib
   """
@@ -254,12 +339,10 @@ def generatePlotExited(nlevel,npair,afh,afhxas):
   pl.figure(1)
   pl.xlabel('g(a.u.)')
   pl.ylabel('the condensation energy spectrum (a.u.)')
-  pl.title('dependend value = %f (a.u.)' %(afh))
   pl.savefig('condensation energy spectrum.png' )
   pl.figure(2)
   pl.xlabel('g(a.u.)')
   pl.ylabel('the energyspectrum (a.u.)')
-  pl.title('dependend value = %f (a.u.)' %(afh))
   pl.savefig('spectrum.png')
   pl.figure(3)
   pl.xlabel('g (a.u.)')
@@ -322,36 +405,36 @@ def main(option, args):
     generatePlotExited(nlevel,npair,afh,afhxas)
     
   if option == 'wpairing':
-    nlevel,npair,dvar,afhxas = args[0:4]
+    nlevel,npair,dvar = args[0:3]
     try:
-      name,nig,plotg = args[4:]
+      name,nig,plotg = args[3:]
     except:
       pass
-    generate_plot(nlevel,npair,dvar,afhxas,name = 'plotenergy.dat',plotg = False)
-  
+    print nlevel,npair,dvar
+    generate_plot(nlevel,npair,dvar,name = 'plotenergy.dat',plotg = False)
+
   if option == 'addlevel':
     g = args[0]
     addlevel(interactionconstant = g)
     
   if option == 'rgvar':
     apair, exname = args[0:2]
-    ref = 'rergvar.dat'; imf = 'imrgvar.dat' ; afhvar = 'g' ; namerg = 'rgvar' 
+    ref = 'plotenergy.dat';  afhvar = 'g' ; namerg = 'rgvarnauw' 
     try:
-      begin = args[2]
+      begin = sys.argv[1]
       stop = args[3]
     except:
       begin = 0
       stop = None
-    if exname is not None:
-      ref = 'rergvar%s.dat' %exname
-      imf =  'imrgvar%s.dat' %exname
-      namerg = 'rgvar%s' %exname
-    plotrgvars(apair,ref = ref,imf = imf,afhvar = 'g' , namerg = namerg,begin = begin,stop = stop)
+    plotrgvars(apair,ref = ref,afhvar = 'g' , namerg = namerg,begin = begin,stop = None,istart=3)
   
   if option is 'rgcloud':
     name, npair,g,sen = args 
     plotrgcloud(name,npair,g,sen)
-  return 0
+  
+  if option is 'cprgvar':
+    npair , name = args
+    plotrgvarscplane(npair , (-20,0), infile = name)
   
 def importmain():
   option = 'rgcloud'
@@ -370,9 +453,8 @@ if __name__ == '__main__':
   args = -0.137
   main(option,args)
   '''
-  option = 'rgcloud'
-  args = 'DangSn120neutronwindow(5,5)sen=2.dat' , 9, -0.137, [1,1,0,0,0,0]
+  option = 'cprgvar'
+  #args =allstates0.dat, 6,4000, None
+  args = 7, 'plotenergy7.dat'
   main(option,args)
-  
-  
-  
+  #plot_spectrumxichange(sys.argv[1],sys.argv[2])  

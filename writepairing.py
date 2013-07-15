@@ -4,126 +4,132 @@ import sys,math , os  , shutil
 import numpy as np
 from numpy import ones, zeros ,array, sort, empty
 from itertools import izip,combinations, combinations_with_replacement #for permutations in easysolve
-import re 
+import re , copy
+from optparse import OptionParser
 #from scoop import futures #for parallel programming
 
 from rgfunctions import *
-import rgfunctions as rf 
 from plotfunctions import *
 import richardsongaudin as rg
-import newtonraphson as nr
-from circumventing import *
+import datareader as dr
 
 def main():
   """
   main function that solves the rg equations for general sp levels and degeneracies extracted from a given file 
   """
-  #file with the sp energy levels
-  infilename = sys.argv[1]
-  #independent variable that is characteristic for the sp energy levels
-  afhxas = sys.argv[2]
-  afhxas = afhxas+ ' (a.u.)'
-  try:
-    koppelingsconstante = float(sys.argv[3])
-  except:
-    #negatieve koppelingsconstante invoeren (deeltjes die elkaar aantrekken)
-    koppelingsconstante = -500
-  #aan te passen variabelen bij elk verschillend probleem
-  probn = 100
-  probname = infilename
-  npair = 6
-  nlevel = 12
-  runstring = "f" #string that determines the loop "k" is run over interaction constant, "f" is run over a file of sp levels, 'e' probes the exited states
-  typint = 'r' #to make the distinction of the different Hamiltonians we can solve with this technique
-  eta = 1. #only necessary if you try to determine the solutions of a factorisable interaction
+  kp =False#for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
-  afh = {'start':0. , 'end':1. , 'step':0.01}
-  kp = True #if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
-  #put kleinekoppeling True if the tda distribution is 1 1 1 1 ... (and the interaction constant has little effect) if False the tdastartd is apair 0 0 ...
-  kleinekoppeling = False
-  #the 2 values underneath are only important when runstring = "k" or runstring = 'e'
-  ende = -1.
-  wafh = 0. # value of the dependend variable where you want to investigate the dependence on the interaction constant of.
-  """2wd defines the energy range for the sp levels that interact with each other. If this 
-  variable is defined (wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable
-  is not defined (wd < 0) then the number of sp levels stays constant
-  """
-  wd2 = -50.
-  degeneration = degeneracies_super(nlevel) 
+  probname = 'testintmotion' #adds to the directory name where all the output data is going to be stored
+  afh = {'start':0.5 , 'end':1.99 , 'step':0.01} ; spkar = 'L' #characterizes the sp levels in the file as run = 'f' and input is a filename
+  step = {'n': -0.003,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  rgw = True ; mov = False ; tdaf = False ; intm = True
+  sign = 'n' #for runstring = k determines which instances of step and ende it receives
+  npair =6#if you use a filename as input or gives the number of pairs in the rombout system
+  nlevel = 12#if you use a filename as input or gives the number of levels in the picketfence model
+  eta = 1.
+  degeneration = degeneracies_super(nlevel) #if you use filename as input
   #set the seniority and degeneracy of the problem (in this case all to zero) REMARK: we can only do this after the definite number of sp levels is known
-  senioriteit = zeros(nlevel,float) 
-  #elevels,degeneration = dangSn(infilename)
-  #nlevel = len(elevels) 
-  #nlevel,degeneration = checkdegeneratie(elevels,degeneration,nauw = 0.0011)
-  
-  #some checks of the initialisation variables
-  assert(len(degeneration) == len(senioriteit)) 
-  assert(len(degeneration) > 1 )
-  assert(koppelingsconstante < 0)
-  probname += "l=%gp=%gal4" %(nlevel,npair)
-  
-  rgeq = None
-  if runstring == 'k' or runstring == 'e':  
-    elevels = readlevels(infilename,wafh,nlevel)
-    nlevel,degeneration = checkdegeneratie(elevels,degeneration) #check if there are any accidental degenrations and reduce the number of sp levels accordingly and return the degeneration dictionary
-    #set the seniority and degeneracy of the problem (in this case all to zero) REMARK: we can only do this after the definite number of sp levels is known
-    senioriteit = zeros(nlevel,float)  
-    if runstring == 'k': name = "testeta0(eta-2gpair-1)runk1geo%s=%fname=%si=%g" %(afhxas , wafh,probname,probn)
-    else: name = 'excitedstatesplotenergy1geo%s=%fname=%s' %(afhxas , wafh,probname)  
-    
-    if typint == 'r':
-      rgeq = rg.RichRedBcs(elevels,degeneration,senioriteit,koppelingsconstante,npair,xi = 5.992003000000000027e-6)
-    elif typint == 'f':
-      rgeq = rg.RichFacInt(elevels,degeneration,senioriteit,koppelingsconstante,eta,npair,xi = 5.992003000000000027e-6)
+  tdadict = None #{0:6}#if not None will set the tdadict of rgeq
+  kleinekoppeling = True#put kleinekoppeling True if the tda distribution is 1 1 1 1 ... (and the interaction constant has little effect) if False the tdastartd is apair 0 0 ...
+  restart = False #Set this variable true when the current calculation is a follow up of a former calculation so it is possible to read the Richardson-Gaudin variables of the last point back in.
+  wd2 = -50. #(wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable is not defined (wd < 0) then the number of sp levels stays constant
+  #handling of input variables
+  usage = "python writepairing.py [options] arguments \n(take also a look at which function is the main function in the bottom of the writepairing.py file)"
+  parser = OptionParser(usage = usage)
+  parser.add_option('-f','--filename',dest = 'filename' ,default = None,type = str, help = 'File of which each line consists of a dependend variable and the corresponding sp energylevels (seperated by tabs)')
+  parser.add_option('-v','--variable',dest = 'depvar',default = 'g' , help = 'Give the string representation of the independend variable that is going to be changed')
+  parser.add_option('-i','--interactionc',dest = 'interactionconstant',default = -0.0001,type = float,help = 'Give the pairing strength')
+  parser.add_option('-r','--run', dest = 'runstring' , default = 'k' , help = 'Give the mainrun you want the program to execute')
+  parser.add_option('-H' , '--hamiltonian' , dest = 'hamiltonian' , default = 'r' , help = 'Give the hamiltonian you want to solve: \'r\' is the red. bcs. Hamiltonian, \'f\' is the fac. int. Hamiltonian')
+  parser.add_option('-n', '--inputname', dest = 'inputname' , default = None , help = 'If you don\'t use a file to get the sp levels choose some predefined sets: r (rombouts:2010) , s (sambataro:2008)' )
+  #parser.add_option('-p','--apair' , dest = 'apair' , default = 10 , help ='the number of pairs ', type = int)
+  (options , args) = parser.parse_args(sys.argv[1:])
+  filename = options.filename
+  depvar = options.depvar
+  interactionconstant = options.interactionconstant #negatieve koppelingsconstante invoeren (deeltjes die elkaar aantrekken)
+  runstring = options.runstring
+  typeint = options.hamiltonian
+  inputname = options.inputname
+  wafh= afh['start']
+  #creation of directory name where we save the output of the run
+  if args: 
+    probname = args[0] +'prob'
+  inputlist = ['r','s','d']
+  assert(filename != None or inputname in inputlist)
+  if filename is not None: inp = filename
+  else: inp = inputname
+  name = "run%stype%sinput%sp%gl%gvar%sinteract%fname%s" %(runstring,typeint,inp,npair,nlevel,depvar,interactionconstant,probname) 
+  #creation of the Richardson-Equations we are going to solve
+  if filename != None:
+    elevels = readlevels(filename,wafh,nlevel, nauw = 1e-7)
+    nlevela,degeneration = checkdegeneratie(elevels,list(degeneration)) #check if there are any accidental degenerations and reduce the number of sp levels accordingly and return the degeneration dictionary
+    seniority = zeros(nlevela,float)  #if you use filename as input
+    if typeint == 'r':
+     rgeq = rg.RichRedBcs(elevels,degeneration,seniority,interactionconstant,npair,xi = 5.992003000000000027e-6)
+    elif typeint == 'f':
+      rgeq = rg.RichFacInt(np.sqrt(elevels),degeneration,seniority,interactionconstant,eta,npair,xi = 5.992003000000000027e-6)
     else:
-      print 'error this interaction is not yet known: put typint one of these: r,f'
+      print 'error this interaction is not yet known: put typeint one of these: r,f'
       sys.exit(1)
-    assert(rgeq is not None) 
-  #dictionary that determines the start tda solutions
+  elif inputname in inputlist:
+    print inputname
+    if inputname == 'r':
+      rgeq = romboutsprob(g = interactionconstant, apair = npair) #typical interacion constant between -0.075 and -0.0001 for groundstate
+    elif inputname == 's':
+      rgeq = picketfence(hamiltonian = options.hamiltonian, alevel = nlevel,g = interactionconstant,eta = eta , apair = npair)
+    elif inputname == 'd':
+      rgeq = dang(filename = 'Sn120Neutrons' , cutoff = 1e5, koppelingsconstante = interactionconstant) #typ int. c. = -0.137
+  else:
+    print 'bad input filename = %s or inputname = %s' %(filename , inputname)
+  
+  #dictionary that determines the start tda solutions only import for runstring = 'f' (when kp is True) or 'k' 
   pairingd = {}
   #preparing the dictionary according to the limit of the interaction constant we probe
   if kleinekoppeling:    
-    pairingd = tdadict_kleinekoppeling(npair,degeneration,senioriteit)
-    step = -0.01
+    pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
   else:
-    pairingd[0] = npair
-    step = 1.
-  #####################################################################################################################2
-  ###########################END OF INITIALISATION (start mainwork) ###################################################2
+    pairingd[0] = rgeq.apair
+  if tdadict != None:
+    pairingd = tdadict
+  if restart == True:
+    rgvars = readrgvarsplote(-5., 'plotenergy.dat')
+    rgeq.rgsolutions = rgvars
+    rgeq.xi =1.
+  #some checks of the initialisation variables
+  assert(len(rgeq.ontaardingen) == len(rgeq.senioriteit)) 
+  assert(len(rgeq.energiel) > 1 )   
+  #####################################################################################################################
+  ###########################END OF INITIALISATION (start mainwork) ####################################################  
+  #generate seperate dir for the solved problem
+  assert(rgeq is not None) 
+  generate_dir(name,filename,None) #if filename is None nothing will be copied in the directory see the implementation of generate_dir in rgfunctions
+  
   if runstring == "f":
     #loop over file that contains the sp levels
-    name = "nr= %dname=%sk=%fnp=%sL=%swd2=%fvo=100" %( probn , probname, koppelingsconstante,npair, nlevel ,wd2) 
-    #generate seperate dir for the solved problem
-    generate_dir(name,infilename,None)
-    generating_data(infilename,typint,eta,koppelingsconstante,afh,npair,nlevel,wd2,pairingd,degeneration,afhxas,kp,namepf = name+'.dat')
+    generating_data(rgeq,nlevel,filename,afh,wd2,pairingd,spkar,kp,namepf = name+'.dat')
     #generate some nice plots of the created data in the problem directory
-    generate_plot(nlevel,npair,koppelingsconstante,afhxas,plotg = True,name = name+'.dat')
-    
-    
+    generate_plot(nlevel,npair,depvar,plotg = True,name = name+'.dat')
+        
   elif runstring == "k":
-    #generate seperate dir for the solved problem
-    generate_dir(name,infilename,None)
-    generating_datak(rgeq,pairingd,afhxas,step,ende,tdafilebool = False ,exname = name,moviede = False)       
+    generating_datak(rgeq,pairingd,depvar,step[sign],ende[sign],rgwrite = rgw ,tdafilebool = tdaf,exname = name,moviede = mov, intofmotion = intm )       
     #generate some nice plots of the created data in the problem directory
-    generate_plot(nlevel,npair,wafh,afhxas,plotg = False,name='plotenergy'+name+'.dat')
+    generate_plot(nlevel,npair,depvar,plotg = False,name='plotenergy'+name+'.dat')
   
   elif runstring == 'e':
     '''
-    because in the non-interacting limit we now some exited states vb: 1111100000 -> 1111010000 we must start the survey of the
+    because in the non-interacting limit we know some exited states vb: 1111100000 -> 1111010000 we must start the survey of the
     non-interacting states from weak interaction limit to the big limit
     '''
-    rgw = True
-    mov = False
-    tdaf = False
     try:
       assert(kleinekoppeling)
     except AssertionError:
       print 'put kleinekoppeling True because the survey of exited states commands to go from the weak interaction limit to the strong interaction limit'
-    probeLowestExitedStates(name,rgeq,pairingd,afhxas,step,ende,rgw,mov,tdaf) 
-    #probeAllExitedStates(name,elevels,koppelingsconstante,npair,nlevel,afhxas,wafh,pairingd,degeneration,senioriteit,step,ende,rgw,mov,tdaf) :
-  
-
-def generating_data(infilename,typint,eta,koppelingsconstante,afhw,npair,nlevels,wd2,pairingdict,deg,afhxas,kp = False,namepf = 'plotenergy.dat',checkfile = True,rgwrite = True,exname = ''):
+    allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf)
+    #probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf) 
+  else:
+    print 'runstring: %s is not a valid runstring' %runstring
+   
+def generating_data(rgeq,nlevel,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namepf = 'plotenergy.dat',checkfile =False,rgwrite = True,exname = ''):
   """
   function that generates the file with all the data 
   does the main job
@@ -133,115 +139,109 @@ def generating_data(infilename,typint,eta,koppelingsconstante,afhw,npair,nlevels
   end = afhw['end']
   step = afhw['step']
   saveopl = 123456.
-  discstep = 200. #discontinuity step if two succeeding solutions differ by more then this we search the ground state from the beginning
+  deg = nlevel*[2] #important because rgeq.ontaardingen has a degeneracy list which is already processed (length can be smaller then nlevel) so to process new energielevels you need a degeneracy list with length equal to nlevel
+  discstep = 1000#discontinuity step if two succeeding solutions differ by more then this we search the ground state from the beginning
   #create the data files
   plotenergyfile = open(namepf,"w")
-  rf.info_1set(plotenergyfile,'#interactionconstant = %f\n#deg=%s\n'%(koppelingsconstante,str(deg)) , exinfo = "#at (afh = %s)\n#g\tcE\tgE\tnig\td\tnlevels\trgvar(real)\trgvar(imag)\t ...\n" %(afhxas),tdadict = pairingdict)
+  info_1set(plotenergyfile,str(rgeq), exinfo = "#at (afh = %s)\tcE\tgE\tnig\td\tnlevels\trgvar(real)\trgvar(imag)\t ...\n" %(afhxas),tdadict = pairingdict)
   ifile = open( infilename , 'r')
   #if rgvar is None we haven't determined any rg variables so the first solution of the file has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
   #start from the previous solution if the stepwidth of the dependent variable of the file is low enough (WATCH OUT for critical points)
-  rgeq = None
   for line in ifile:
     if (line[0] is '#'):
       continue
     waarden = map(float,line.split())
-    #REMARK remember waarden[0] consists of the dependent variable that characterizes the sp levels
-    if math.fabs(waarden[0])+0.000001 > math.fabs(afh) and math.fabs(waarden[0])-0.000001 < math.fabs(afh) :	
+    #REMARK remember waarden[0] consists of the dependend variable that characterizes the sp levels
+    if math.fabs(waarden[0])+0.000001 > math.fabs(afh) and math.fabs(waarden[0])-0.000001 < math.fabs(afh) :        
       print "***************************"
       print "afhwaarde = %f" %afh
       print "***************************" 
       defvar = waarden[0]
-      energielev = waarden[1:]
-      nlevels,energielev = wd_processing(wd2,nlevels,npair,energielev)
-      nlevel,deg = checkdegeneratie(energielev,deg) 
-      sen = np.zeros(nlevel,float)
+      energielev = waarden[1:nlevel+1]
       energielev.sort()
+      nlevels,energielev = wd_processing(wd2,nlevel,rgeq.apair,energielev)
+      nlevela,dega = checkdegeneratie(energielev, list(deg))
       energielev = array(energielev)
-      d = calculated(energielev,deg) 
-      bb = calcnintgrondtoestand(npair,energielev,deg,sen)
+      rgeq.energiel = energielev ; rgeq.ontaardingen = np.array(dega)
+      rgeq.senioriteit = np.zeros(nlevela)
+      d = calculated(rgeq.energiel,rgeq.ontaardingen) 
+      bb = calcnintgrondtoestand(rgeq)
       print "%f is de waarde van d bij afh = %f" %(d,defvar)
       """
       If the interaction constant is to small we can't find any solution with this pairing dictionary, therefore we call the generateRGsolKoppeling
       a function that gives back the RG energy of the groundstate and the RG variables for arbitrary interaction constants
       """      
       try:
-	if rgeq is None: #We just started so we need to find a startsolution but if kp is True we win some time by immediately raising a valueError this timewinst is significant for large systems
-	  if typint == 'r':
-	    rgeq = rg.RichRedBcs(energielev,deg,sen,koppelingsconstante,npair,xi = 5.992003000000000027e-6)
-	  elif typint == 'f':
-	    rgeq = rg.RichFacInt(energielev,deg,sen,koppelingsconstante,eta,npair,xi = 5.992003000000000027e-6)
-	  else:
-	    print 'error this interaction is not yet known: put typint one of these: r,f'
-	    sys.exit(1)
-	  if kp is True:
-	    raise ValueError
-          energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict,plotrgvarpath = True,xlim = None , ylim = None)	  
-	else:
-	  rgeq.energiel = energielev
+        if rgeq.energy is None: #We just started so we need to find a startsolution but if kp is True we win some time by immediately raising a valueError this timewinst is significant for large systems
+          rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict,plotrgvarpath = False,xlim = None , ylim = None)          
+          energierg = rgeq.get_energy()
+        else:
+          rgeq.energiel = energielev
           energierg = rgeq.solve()
-      except (ValueError, np.linalg.linalg.LinAlgError) as e:
-	plotenergyfile.write('# we reached a critical point\n') ; print 'we reached a critical point'
-	if checkfile == True and rgeq.rgsolutions is not None:
-	  chk = open('rgvars.chk','a')
-	  chk.write('%f\t%s\tIm\t%s\n' %(afh,' '.join(map(str,rgeq.rgsolutions.real)),' '.join(map(str,rgeq.rgsolutions.imag))))	
-	  chk.close()
-	if kp is True:
-	  send = rgeq.g
+      except (ValueError, np.linalg.linalg.LinAlgError , rg.XiError) as e:
+        plotenergyfile.write('# we reached a critical point\n') ; print 'we reached a critical point'
+        if checkfile == True and rgeq.rgsolutions is not None:
+          chk = open('rgvars.chk','a')
+          chk.write('%f\t%s\tIm\t%s\n' %(afh-step,' '.join(map(str,rgeq.rgsolutions.real)),' '.join(map(str,rgeq.rgsolutions.imag))))        
+          chk.close()
+        if kp is True:
+          send = rgeq.g
           rgeq = genstartsol(rgeq,d,send,begin = None,pairingd = None)
           a = False ; gg =[(0.5,10.),(0.2,4.),(3.,5.),(5.,10.),(1.,2.),(20.,10.)] ; i =0
           while(a is False and i < len(gg)):
             try:
-	      energierg, rgeq,rgeq2 = littleLoop(rgeq,(send - rgeq.g)/gg[i][0],gg[i][1],complexstepd = 10000,end = send ,backxi = False,xival = 1.)
-	      a = True
-	    except (ValueError,np.linalg.linalg.LinAlgError) as e:
-	      i += 1	   
-	else:
-	  try:
-	    energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
-	  except:
-	    print '######################################################'
-	    print 'ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR'
-	    print ' ####################################################'
+              energierg, rgeq,rgeq2 = littleLoop(rgeq,(send - rgeq.g)/gg[i][0],gg[i][1],complexstepd = 10000,end = send ,backxi = False,xival = 1.)
+              a = True
+            except (ValueError,np.linalg.linalg.LinAlgError) as e:
+              i += 1           
+        else:
+          try:
+            rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
+            energierg = rgeq.get_energy()
+          except:
+            print '######################################################'
+            print 'ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR'
+            print ' ####################################################'
       #little discontinuity check
-      if (energierg + discstep < saveopl or energierg - discstep > saveopl) and saveopl is not 123456.:
-	print '######################################################################################'
-	print 'we arrived at a discontinuity'
-	print '######################################################################################'
-	if kp is True:
-	  send = rgeq.g 
+      if (rgeq.get_energy() + discstep < saveopl or rgeq.get_energy() - discstep > saveopl) and saveopl is not 123456.:
+        print '######################################################################################'
+        print 'we arrived at a discontinuity'
+        print '######################################################################################'
+        plotenergyfile.write('#we arrived at a discontinuity\n')
+        if kp is True:
+          send = rgeq.g 
           rgeq = genstartsol(rgeq,d,send,begin = None,pairingd = None)
           a = False ; gg =[(0.5,10.),(2.,5.),(3.,20.),(5,10.),(1.,2.)] ; i =0
           while(a is False):
             stepg = (send - rgeq.g)/gg[i][0]
             print send , str(rgeq),stepg
             try:
-	      energierg, rgeq,rgeq2 = littleLoop(rgeq,stepg,gg[i][1],complexstepd = 10000,end = send ,backxi = False,xival = 1.)
-	      a = True
-	    except (ValueError,np.linalg.linalg.LinAlgError) as e:
-	      i += 1
+              energierg, rgeq,rgeq2 = littleLoop(rgeq,stepg,gg[i][1],complexstepd = 10000,end = send ,backxi = False,xival = 1.)
+              a = True
+            except (ValueError,np.linalg.linalg.LinAlgError) as e:
+              i += 1
         else:
-	  energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
+          rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdict)
+          energierg = rgeq.get_energy()
       saveopl = energierg
       if energierg is not None:
-	plotenergyfile.write("%f\t%f\t%f\t%f\t%f\t%f" %(defvar, energierg-bb, energierg,bb , d,nlevel))
+        plotenergyfile.write("%f\t%f\t%f\t%f\t%f\t%f" %(defvar, energierg-bb, energierg,bb , d,nlevel))
       if rgwrite is True:
-	for i in range(npair):
-	  plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].real ))
-	  plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].imag ))
+        for i in range(rgeq.apair):
+          plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].real ))
+          plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].imag ))
       plotenergyfile.write('\n')
       afh = afh + step
       if math.fabs(afh)+0.00001 > math.fabs(end) and math.fabs(afh)-0.00001 < math.fabs(end):
-	break
+        break
   plotenergyfile.close()
   if rgwrite is True:
-    plotrgvars(rgeq.apair,ref = namepf,afhvar = afhxas,namerg = 'rgvar%f%s' %(koppelingsconstante,exname),istart = 6 )
+    plotrgvars(rgeq.apair,ref = namepf,afhvar = afhxas,namerg = 'rgvar%f%s' %(rgeq.g,exname),istart = 6 )
   ifile.close()
 
-def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False ,etachange = False):
+def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True):
   conarray = [] # array that is used to check continuity
-  changeg = RG_Continuity()
-  eerstekp = False
   plotenergyfile = open("plotenergy%s.dat" %exname,"w") #opening of the file that's going to contain the results
   if tdafilebool is True:
     tdafile = open('tdafile.dat','w')
@@ -253,24 +253,28 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
     os.mkdir(dir)
     olddir = os.getcwd() # remember the old directory
     os.chdir(dir) #change to the moviedirectory   
-  d = rf.calculated(rgeq.energiel,rgeq.ontaardingen)  #Calculation of the mean distance between the used sp levels
-  bb = rf.calcnintgrondtoestand(rgeq.apair, rgeq.energiel,rgeq.ontaardingen,rgeq.senioriteit) 
-  rf.info_1set(plotenergyfile,str(rgeq) , exinfo = "#at (afh = %s) d = %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(afhxas, d,bb),tdadict = pairingd)
+  d = calculated(rgeq.energiel,rgeq.ontaardingen)  #Calculation of the mean distance between the used sp levels
+  bb = calcnintgrondtoestand(rgeq) 
+  info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is %s d = %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
   lastkp = False #boolean to know if the last g value circumvented a critical point
   #if rgeq.rgsolutions is None we haven't determined any rg variables so the first solution has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
   #start from the previous solution if the stepwidth of the dependent variable of the file is low enough (WATCH OUT for critical points)
   if rgeq.rgsolutions is None: 
-    energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival,ccrit = 3.)   
-  rgeqlist = []
-  while (rgeq.g != end):
-    rgeqlist.append(rgeq.copy())
-    if len(rgeqlist) > 10:
-      del(rgeqlist[0])
-    if etachange == True:
-      rgeq.eta = rgeq.g/-2.   
+    rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival)   
+    energierg = rgeq.get_energy()
+  rgeqsaveback = None
+  while (rgeq.getvar(dvar) != end ):  
+    savergsolutions = np.copy(rgeq.rgsolutions) ; savedepvar = rgeq.getvar(dvar) #important if continuity check fails
+    rgeq.setvar(dvar,rgeq.getvar(dvar) + step)
+    if (rgeq.getvar(dvar)- abs(step)*0.8 < end and rgeq.getvar(dvar) + abs(step)*0.8 > end):
+      rgeq.setvar(dvar,end)    
+    print 'The variable we change: %s is: %s ' %(dvar ,str(rgeq.getvar(dvar)))
     try:
-      changeg.continuitycheck(rgeq,conarray,step,end, ccrit = 1.8,pf = plotenergyfile)
+      energierg = rgeq.solve()
+      if not continuity_check(conarray, rgeq,crit = 1.8,dvar = dvar):
+        plotenergyfile.write('#we arrived at a discontinuity\n')
+        raise ValueError
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
       """
       we arrived at a critical point so now we circumvent it by making g complex.
@@ -279,64 +283,75 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
       n = 1 #integer that determines how many steps g need to increase to circumvent the critical point
       # if you use the generating_datak wrapper probeExitedStates make sure n = 1 because it takes the difference of exited states with the groundstate and
       #if the critical points of the exited state are different in contrast to those of the ground state then you'll have noisy graphs.
-      plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.g))
-      print "# %s kritisch punt \n" %str(rgeq.g)
-      if eerstekp == False:
-	n = 2
-	complexg = [Change_G(rgeqlist[-5]).change_g({'gend': abs(rgeq.g)/100.,'gstep': abs(rgeq.g)/1000. })] #array where we save the rgeq with complex g
-        eerstekp = True
-      cstep = step
-      send = None
-      complexstep = 1000. ; extremecp = False
-      if abs((complexg[-1].g- rgeq.g )/(step*0.01)) >= 101 : #check which distance is the quickest to circumvent the critical point
-	try:
-	  complexg.append( Change_G(rgeq).change_g({'gend': abs(rgeq.g)/500.,'gstep': abs(rgeq.g)/complexstep }))
-	except:
-	  print "we couldn't create a complex g at this point so we go back to the former"
-      send = rgeq.g + step
-      while lastkp == False:	
-	if n > 11:
-	  send = rgeq.g +2*step
-	elif (rgeq.g.real - abs(step)*0.8 < end and rgeq.g.real + abs(step) *0.8 > end):
-	  send = end
+      plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.getvar(dvar)))
+      savestep = step
+      send = savesend = rgeq.getvar(dvar) 
+      rgeq.setvar(dvar,rgeq.getvar(dvar) - step) ; rgeq.rgsolutions = savergsolutions  #go back to the rgeq where we know the solution
+      complexstep = 10000 ; extremecp = False
+      while lastkp == False:        
+        if (rgeq.getvar(dvar) - abs(step)*1.5 < end and rgeq.getvar(dvar) + abs(step) *1.5 > end):
+          send = end
+          step /= 2.
         try:
-          #make sure that you divide step by a dividor from step 
-          energierg,rgeq,rgeqsaveback = rf.littleLoop(complexg[-1],cstep/4.,n*4,complexstepd = complexstep,end = send)
-          complexg.append(rgeqsaveback)
-          continuity_check(rgeq,step,conarray, energierg,crit = 2.)
+          #make sure that you divide step by a divisor from step 
+          if n > 1:
+            send += savestep/2.
+            step += savestep/4.
+          if rgeqsaveback == None:
+            send += step
+            energierg,rgeq,rgeqsaveback = littleLoop(conarray[-2],step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
+          elif abs(rgeqsaveback.getvar(dvar)-send)/abs(savestep)   > 4 and n < 100: 
+            energierg,rgeq,rgeqsaveback = littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
+          else:
+            if n < 310:
+              send = savesend 
+              complexstep = 10000
+              step = savestep
+            send += savestep/2.
+            if n < 1000:
+              step /= 2.
+            if n > 1000:
+              step *= 5.
+            assert(isinstance(rgeqsaveback.g,complex))
+            energierg,rgeq, rgeqsaveback = littleLoop(rgeqsaveback,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
+            lastkp = True
+            if n > 1000:
+              print 'n is starting to get large: %g  maybe you should consider changing the parameters that determine the circumvention of critical points' %n
+          if not continuity_check(conarray, rgeq,crit = 1.9 * n % 4 ,dvar = dvar):
+            print'problems with continuity of the found solutions %s with the following richardsoneq %s' %(str(conarray),str(rgeq))
+            plotenergyfile.write('# discontinuity at %s  , with n = %g , send = %f , complexstep = %f , step = %f' %(str(rgeq.getvar(dvar)), n , send , complexstep , step))
+            rgeq.rgsolutions = savergsolutions
+            rgeq.setvar(dvar,savedepvar) #go back to the rgeq where we know the solution
+            raise ValueError
           lastkp = True
-        except (ValueError, np.linalg.linalg.LinAlgError,DiscontinuityError) as e:
-	  send += step/2.                                       
-	  print e
-	  if abs(rgeq.g) > 1e-3:
-	    complexstep *= 2.
-	  else:
-	    complexstep /= 10.
-	  if rgeq.g - abs(cstep)*0.8 < end and rgeq.g + abs(cstep) *0.8 > end:
-	    cstep /= 2.	
-	    if abs(step) < 1e-7:
-	      n = 100000
-	  else:  
-	    cstep /= 10.
-	    n *= 10
-	  print 'couldn\'t circumvent the critical point at g = %f, try to make the step of the interaction constant bigger in complexspace' %rgeq.g
-	  print 'circumventing a critical point at %g steps and step in complexspace is %f' %(n, complexstep)
-
+          step = savestep
+        except (ValueError, np.linalg.linalg.LinAlgError) as e:
+          n *= 4
+          if abs(rgeq.getvar(dvar)) > 1e-3:
+            if complexstep <= 4e5:
+              complexstep *= 2. #how bigger complexstep how smaller step in complexspace
+          else:
+            complexstep /= 10.
+          print 'circumventing a critical point at %g steps and step in complexspace is %f , at %s = %f ' %(n, complexstep,dvar,rgeq.getvar(dvar))       
     finally:
       if tdafilebool is True:
-	try:
-	  pairingdict  =  rg.RichardsonSolver(rgeq).main_desolve(xistep = -0.01,rgwrite = tdafilebool, plotrgvarpath = moviede,plotepath = False,xiend= 0.0001)
-	  tdafile.write('%f\t%s\n'  %(rgeq.g,' '.join(map(str,pairingdict))))
-	  print pairingdict
-        except (ValueError, np.linalg.linalg.LinAlgError,NameError) as e:
-	  print 'problem in going back in xispace to xi = o to determine the corresponding tdadistribution'
-	  tdafile.write('#%f\t%s\n'  %(rgeq.g,'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
-      	  
-    plotenergyfile.write("%f\t%f\t%f" %(rgeq.g, energierg-bb, energierg)) 
+        rgsolver = rg.RichardsonSolver(rgeq)
+        try:
+          pairingdict  =  rgsolver.main_desolve(xistep = -0.01,rgwrite = False, plotrgvarpath = moviede,plotepath = False)
+          tdasol = rgsolver.get_tda(None) 
+          tdafile.write('%f\t%s\t%s\n'  %(rgeq.getvar(dvar),' '.join(map(str,pairingdict)), ' '.join(map(str,(tdasol)))))
+        except (ValueError, np.linalg.linalg.LinAlgError,NameError , rg.XiError) as e:
+          print 'problem in going back in xispace to xi = o to determine the corresponding tdadistribution'
+          tdafile.write('#%f\t%s\n'  %(rgeq.getvar(dvar),'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
+    plotenergyfile.write("%f\t%f\t%f" %(rgeq.getvar(dvar), energierg-bb, energierg)) 
     if rgwrite is True:
       for i in range(rgeq.apair):
-	plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].real ))
-	plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].imag ))
+        plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].real ))
+        plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].imag ))
+    if intofmotion == True:
+      integralsofm = rgeq.intofmotion()
+      for i in range(rgeq.alevel):
+        plotenergyfile.write('\t%f' %(integralsofm[i].real))
     plotenergyfile.write('\n')
     lastkp = False   ; extremecp = False
   #end calculation underneath is just some cleaning up and closing files  
@@ -344,171 +359,166 @@ def generating_datak(rgeq,pairingd,afhxas,step,end ,xival = 1.,rgwrite = True,ex
   if tdafilebool is True:
     tdafile.close()
     if moviede is True:
-      rf.makemovie()
+      makemovie()
     os.chdir(olddir) #because we were in the movie dir but we want our other plots in the parentdir
   if rgwrite == True:
-    plotrgvars(rgeq.apair, ref = "plotenergy%s.dat" %exname, afhvar = 'g',namerg = 'rgvar%s' %exname,istart = 3) 
+    plotrgvars(rgeq.apair, ref = "plotenergy%s.dat" %exname, afhvar = dvar,namerg = 'rgvar%s' %exname,istart = 3) 
+  if intofmotion == True:
+    plotintofmotion(rgeq.alevel , rgeq.apair , ref ="plotenergy%s.dat" %exname, afhvar = dvar , istart = 3 )
   return energierg,rgeq  
     
-def probeLowestExitedStates(dirname,infilename,rgeq,pairingd,afhxas,step,ende,rgw,mov,tdaf) :
+def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n') :
   '''
   function that investigates excited states
   '''
-  dir = dirname
-  if os.path.isdir(dir):
-    shutil.rmtree(dir)
-  os.mkdir(dir)
-  if isinstance(infilename,str):
-    shutil.copy(infilename,dir)
-  os.chdir(dir)  
+  print rgeq
   pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen,rgeq.senioriteit)
-  generating_datak(rgeq,pairingd,afhxas,step, ende,exname = 'grondtoestand',rgwrite = rgw, moviede =mov , tdafilebool = tdaf)
-  generate_plot(rgeq.alevel,rgeq.apair,rgeq.g,afhxas,name = 'plotenergygrondtoestand.dat', plotg = False)
-  for j in xrange(rgeq.apair):
-    del(pairingd[rgeq.apair-j-1])
-    for i in xrange(rgeq.alevel-rgeq.apair):
-      pairingd[rgeq.apair+i] = 1.
-      extraname = str(rgeq.apair-j) +'_'+str(rgeq.apair +i+1)
-      generating_datak(rgeq,pairingd,afhxas,step,ende,rgwrite = rgw,exname = extraname,moviede = mov,tdafilebool = tdaf)
-      del(pairingd[rgeq.apair+i])
-      generate_plot(rgeq.alevel,rgeq.apair,rgeq.g,afhxas,name = 'plotenergy%s.dat' %extraname , plotg = False)
-    pairingd[rgeq.apair-j-1] = 1.  
+  generating_datak(rgeq,pairingd,afhxas,step[sign], ende[sign],exname = 'grondtoestand',rgwrite = rgw, moviede =mov , tdafilebool = tdaf)
+  generate_plot(rgeq.alevel,rgeq.apair,afhxas,name = 'plotenergygrondtoestand.dat', plotg = False)
+  nullevel =  list(pairingd)[-1] + 1 #nullevel is the first not occupied level in pairingd (remember tdadict_kleinekoppeling gives us a dict back that only contains the lowest  possibley occupied levels)
+  for j in xrange(nullevel):
+    pairingd[nullevel-j-1] -= 1
+    for i in xrange(rgeq.alevel-nullevel+1):
+      print 'we are calculating the following excitation: pair in level %g -> level %g ' %(j,nullevel+i)
+      pairingd[nullevel+i] = 1
+      extraname = str(nullevel-j-1) +'_'+str(nullevel +i)
+      generating_datak(rgeq,pairingd,afhxas,step[sign],ende[sign],rgwrite = rgw,exname = extraname,moviede = mov,tdafilebool = tdaf)
+      pairingd[nullevel+i] -= 1
+      generate_plot(rgeq.alevel,rgeq.apair,afhxas,name = 'plotenergy%s.dat' %extraname , plotg = False)
+    pairingd[nullevel-j-1] += 1.  
     break #uncomment if you only want the lowest exited states
-  generatePlotExited(rgeq.alevel,rgeq.apair,wafh,afhxas)
+  generatePlotExited(rgeq.alevel,rgeq.apair)
 
-def probeAllExcitedStates(dirname,rgeq,pairingd,afhxas,wafh,step,ende,rgw,mov,tdaf) :
+def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf):
   '''
-  function that is meant to generate all the exited state of a particular reduced BCS Hamiltonian
-  but first generate the groundstate so we can compare
-  REMARK: make sure step is negative and koppelingsconstante is very small so we can make the interaction constant stronger
-  and probe excited states (we know already the distribution of tdapairs for the excited states at small interaction constant)
-  REMARK: only works when we can start from the small interaction limit
+  calculates all the eigenvalues of the pairingsHamiltonian
   '''
-  #generate seperate dir for the solved problem
-  generate_dir('allexcited%s' % dirname,None,None)
-  #generate special dir for the groundstate info
-  generate_dir('grondtoestand',None,None)
-  pairingd = tdadict_kleinekoppeling(npair,degeneration,seniority)
-  generating_datak(rgeq,pairingd,afhxas,step, ende,exname = 'grondtoestand',rgwrite = rgw,moviede = mov,tdafilebool = tdaf)
-  generate_plot(rgeq.alevel,rgeq.apair, rgeq.g,afhxas,name = 'plotenergygrondtoestand.dat', plotg = False)
-  os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
-  #to calculate all the permutations of 1 1 0 0 ... so we choose out a np.arange(alevel) apair levels where we put our pairs (without repetition)
-  tdacombinations = combinations(np.arange(0,rgeq.alevel),rgeq.apair)
+  tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
   onezipper = np.ones(rgeq.apair)
-  tdacor = open('tdacor.dat','w')
-  tdacor.write('#This file contains the correspondence between the directorys and the start tda distributions \n #The first column is the directory number and on the same line is the tda start distribution written \n')
-  i = 0
-  for tdadict in tdacombinations:
-    generate_dir('%g' %i,None,None) #only handy for a small amount of levels
-    #tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
-    tdastartd = dict(zip(tdadict,onezipper))
-    tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdastartd.values()))))
-    print 'we start generating_datak with: ', tdastartd
-    generating_datak(rgeq,tdastartd,afhxas,step,ende  ,rgvars = None,rgwrite = rgw,exname = '',moviede = mov,tdafilebool = tdaf)
-    generate_plot(rgeq.alevel,rgeq.apair,waardeafh,afhxas,plotg = False)
-    os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
-    i += 1
-  tdacor.close()
-  
-  
-def testcircumvent():
-  '''
-  test for the rgsolutions when xi is not one and/ or g is imaginary
-  '''
-  eendlev = np.arange(1,13)
-  seniority = zeros(len(eendlev),float)
-  degeneration = np.ones(len(eendlev))*2.
-  alevel = len(eendlev)
-  apair = alevel/2
-  tdastartd = {}
-  tdastartd = {0:6}
-  enddatak = -0.001
-  stepg = 0.003
-  rgvar = None
-  afhxas = 'g'
-  waardeafh = 0.
-  #generate seperate dir for the solved problem
-  generate_dir('testjesnieuwe',None,None)
-  print tdastartd
-  xival = 1.
-  g = -1.
-  rgeq = rg.RichRedBcs(eendlev,degeneration,seniority,g,apair)
-  #while xival <= 1.:
-  energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,xistep = 0.01,xival = xival)   
-    #while g.imag < abs(g.real/10.):
-     # rgeq.g += 1j*0.01
-      #energierg,rgvar = rgeq.solve()
-      #print rgeq.g
-    #try:
-  generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '%f' %xival,moviede = False,tdafilebool = False,xival = xival)
-      #generate_plot(rgeq.alevel,rgeq.apair,waardeafh,afhxas,plotg = False,name = 'plotenergy%f.dat' %xival)
-    #except:
-      #pass   
-    #xival += 0.1
-
-def testeasysolve():
-  '''
-  calculates all the eigenvalues of the pairingsHamiltonian of a system with double degenerate, equidistant levels and zero seniority
-  '''
-  eendlev = np.arange(1,13)
-  eendlev = array([0.04,0.08,0.16,0.20,0.32,0.36,0.40,0.52,0.64,0.68,0.72,0.8,1])
-  eendlev = np.sqrt(eendlev)
-  seniority = zeros(len(eendlev),float)
-  degeneration = np.ones(len(eendlev))*2
-  degeneration = [4,4,4,8,4,4,8,8,4,8,4,8,12]
-  alevel = len(eendlev)
-  apair = alevel/2
-  apair = 10
-  afhxas = 'g'
-  waardeafh = 0.
-  eta =1.
-  generate_dir('stefanall',None,None)
-  #to calculate all the permutations of 1 1 0 0 ... so we choose out a np.arange(alevel) apair levels where we put our pairs (without repetition)
-  tdacombinations = combinations_with_replacement(np.arange(alevel),apair)
-  onezipper = np.ones(apair)
   tdacor = open('tdacor.dat','w')
   tdacor.write('#This file contains the correspondence between the directorys and the start tda distributions \n #The first column is the directory number and on the same line is the tda start distribution written \n')
   i = 0
   for a in [0,1]:
     if a == 0:
-      g = -0.0001 ; enddatak = -0.1 ;   stepg = -0.001
+      enddatak = ende['n'];   stepg = step['n']
+      rgeq.g = -0.0001
     else:
-      g = 0.0001 ; enddatak = 10. ; stepg = 0.003
-    rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
+      enddatak = ende['p'] ; stepg = step['p']
+      rgeq.g = 0.0001
     for tdadict in tdacombinations:
-      tdastartd = {} ; goodsol = True
-      for j in tdadict:      
-        tdastartd[j] = tdadict.count(j)  
-        if tdastartd[j]*2 + rgeq.senioriteit[j]*2 > rgeq.ontaardingen[j]:
-	  goodsol = False
-      if goodsol == True:
-	generate_dir('%g' %i,None,None) #only handy for a small amount of levels
-	#tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
-	tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
-	print 'we start generating_datak with: ', tdastartd
-	generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
-	generate_plot(alevel,apair,waardeafh,afhxas,plotg = False)
-	os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
-	i += 1
-  tdacor.close()
+      tdastartd = {}
+      goodsol = True
+      for j in tdadict:
+        a = tdadict.count(j)      
+        tdastartd[j] = a
+        if a*2 + rgeq.senioriteit[j]*2 > rgeq.ontaardingen[j]:
+          goodsol = False
+      if goodsol == False:
+        continue
+      if i > -1: #parameter to restart easely after failure
+        generate_dir('%g' %i,None,None) #only handy for a small amount of levels
+        #tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
+        tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
+        print 'we start generating_datak with: ', tdastartd
+        generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = rgw,exname = '',moviede = mov,tdafilebool = tdaf)
+        generate_plot(rgeq.alevel,rgeq.apair,afhxas,plotg = False)
+        os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
+      i += 1
+      print i
+    tdacor.close()
 
-def dangSn(filen,cutoff = 1e5):
-  f = open(filen,'r')
-  elevel = []
-  deg = []
-  for line in f:
-    if line.startswith('#'):
-      continue
-    else:
-      data = map(float,line.split())
-      if data[0] > cutoff:
-	break
-      elevel.append(data[0])
-      #deg.append(data[1]*4)
-  deg = [2]*len(elevel)
-  f.close()
-  return elevel,deg
+def romboutsprob(g = -0.075, apair =10):
+  #definition of problem of artikel stefan:2010 
+  eendlev = array([0.04,0.08,0.16,0.20,0.32,0.36,0.40,0.52,0.64,0.68,0.72,0.8,1])
+  eendlev = np.sqrt(eendlev)
+  seniority = zeros(len(eendlev),float)
+  degeneration = [4,4,4,8,4,4,8,8,4,8,4,8,12]
+  eta = 1.
+  rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)  
+  return rgeq
   
+def picketfence(hamiltonian = 'r' , alevel = 12,g = -1.,eta = 1., apair = None):
+  #little toy problem introduced by sambataro:2008
+  eendlev = np.arange(1,alevel+1)
+  seniority = zeros(alevel,float)
+  degeneration = np.ones(alevel)*2
+  if apair == None:
+    apair = alevel/2
+  if hamiltonian == 'r':
+    rgeq = rg.RichRedBcs(eendlev,degeneration, seniority,g,apair)
+  elif hamiltonian == 'f':
+    rgeq = rg.RichFacInt(eendlev,degeneration, seniority,g,eta,apair)
+  return rgeq
+
+def dang(filename = 'Sn120Neutrons' , cutoff = 1e5, koppelingsconstante = -0.137):
+  energielev,degeneration = dangSn(filename,cutoff)
+  nlevel,degeneration = checkdegeneratie(energielev,degeneration,nauw = 0.0011)
+  senioriteit = [0]*len(energielev)  
+  npair = 35 
+  energielev,degeneration,senioriteit,npair,nlevel,fermil,extrae = windowcreation(energielev,degeneration,senioriteit,npair,5,5)
+  if ham == 'r':
+    rgeq = RichRedBcs(eendlev,degeneration, seniority,g,apair)
+  elif ham == 'f':
+    eta = 1.
+    rgeq = RichFacInt(energielev,degeneration, senioriteit,koppelingsconstante,eta,npair)
+  return rgeq  
+  
+def facintmain():
+  #definition of problem of artikel stefan:2010 
+  rgeq = romboutsprob()
+  tdastartd = {0:10,1:0,2:0}
+  enddatak = -0.0002
+  stepg = 0.0001
+  dvar = 'g'
+  generate_dir('stefantda',None,None)
+  generating_datak(rgeq,tdastartd,dvar,stepg,enddatak ,rgwrite = True,exname = '',moviede =True,tdafilebool = True)
+  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False)  
+
+def allstatesoneg(npair = 3):
+  rgeq = romboutsprob(g = -0.1)
+  rgeq = picketfence(hamiltonian = 'r' , alevel = 6,g = -2.00,eta = 1.)
+  generate_dir('picketfencefac6lev3redbcs-2.00',None,None)  #generate seperate dir for the solved problem
+  activelevels = 6
+  '''
+  totsen = np.arange(0,npair*2+1,2,int)
+  for vsen in totsen: 
+    seniority_enhancer_allstates(rgeq,'romboutsall',vsen,exewaarde = 0.,begin = -0.0001 ,step = -0.0001)  
+  '''
+  fd = open('allstatesactivelevels=%g' %activelevels,'w')
+  fd.write(str(rgeq))
+  ontaarding = 1.
+  dataanalyse = {'rgw': True , 'ple': False, 'plrg': False , 'ont': False }
+  allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataanalyse = dataanalyse) 
+  plot_spectrumxichange('.','.dat') 
+
+def testcircumvent():
+  '''
+  test for the rgsolutions when xi is not one and/ or g is imaginary
+  '''
+  rgeq = picketfence(hamiltonian = 'r' , alevel = 12,g = -1.,eta = 1.)
+  tdastartd = {0:6}
+  enddatak = -0.001
+  stepg = 0.001
+  rgvar = None
+  afhxas = 'g'
+  #generate seperate dir for the solved problem
+  generate_dir('testcircumventwithlowxicomplexg3',None,None)
+  print tdastartd
+  xival = 0.1
+  while xival <= 1.:
+    g = -1.0007
+    rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,gwrite = False,xistep = 0.01,xival=xival)   
+    energierg = rgeq.get_energy()
+    while g.imag < abs(g.real/10.):
+      rgeq.g += 1j*0.01
+      energierg,rgvar = rgeq.solve()
+      print rgeq.g
+    try:
+      generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgvars = rgvar,rgwrite = True,exname = '%f' %xival,moviede = False,tdafilebool = False,xival = xival)
+      generate_plot(rgeq.alevel,rgeq.apair,afhxas,plotg = False,name = 'plotenergy%f.dat' %xival)
+    except:
+      pass   
+    xival += 0.1  
 
 def dangmain():
   '''
@@ -543,7 +553,7 @@ def dangmain():
   rgeq = RichRedBcs(energielev,degeneration,senioriteit,koppelingsconstante,npair)
   #while(energielev[-1] >= 0):
   #generating_datak(rgeq,pairingd,afhxas,step,ende,rgvars = rgvard,tdafilebool = False ,exname = 'Dang%g' %tel)       
-  #generate_plot(len(energielev),npair,wafh,afhxas,plotg = False,name='plotenergyDang%g.dat' %tel)
+  #generate_plot(len(energielev),npair,afhxas,plotg = False,name='plotenergyDang%g.dat' %tel)
   """
     tel += 1
     del(energielev[-1])
@@ -555,39 +565,71 @@ def dangmain():
   #totsen = np.arange(8.,npair*2+1,2.)
   totsen = [12.]
   for vsen in totsen: 
-    seniority_enhancer_allstates(rgeq,'DangSn120neutronwindow(5,5)',vsen,exewaarde = extrae,begin = -0.001 ,step = -0.0001)
+    seniority_enhancer_allstates(rgeq,'DangSn120neutronwindow(5,5)',vsen,exewaarde = extrae,begin = -0.001 ,step = -0.0001)    
 
-def facintmain():
-  #artikel Stefan test
-  eendlev = array([0.04,0.08,0.16,0.20,0.32,0.36,0.40,0.52,0.64,0.68,0.72,0.8,1])
-  eendlev = np.sqrt(eendlev)
-  #eendlev = np.sqrt(-1.*2*(np.arange(1,25)-24))
-  seniority = zeros(len(eendlev),float)
-  degeneration = [4,4,4,8,4,4,8,8,4,8,4,8,12]
-  #degeneration = ones(len(eendlev),float)*2.
-  alevel = len(eendlev)
-  apair = 10
-  #apair = 10
-  g = -0.075
-  #g = -1.
-  eta = 1.
-  tdastartd = {}
-  tdastartd = {0:10}
-  enddatak = -0.001
-  stepg = +0.001
-  afhxas = 'g'
-  rgeq = rg.RichFacInt(eendlev,degeneration,seniority,g,eta,apair)
-  generate_dir('romboutsplay',None,None)
-  generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
-  generate_plot(alevel,apair,0.,afhxas,plotg = False)  
-    
-    
+
+def testrestart():
+  dfile = 'plotenergytest.dat'
+  afhvar = -0.3601
+  rgvars =  readrgvarsplote(afhvar, name = dfile)
+  rgeq = picketfence(hamiltonian = 'f' , alevel = 12,g = afhvar,eta = 1.) 
+  rgeq.rgsolutions = rgvars ; rgeq.xi = 1. ; rgeq.solve()
+  print rgeq
+  step =  0.0001
+  end = -0.0001
+  dvar = 'g'
+  name = ''
+  pairingd = {0:rgeq.apair}
+  generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
+  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+name+'.dat')
+
+def stijnijzer():
+  deg = [6,4,2,8,4,6,2,2,6,10]
+  sen = [0,0,0,0,0,0,0,0,0,0]
+  elevel = [-21.5607 , -19.6359 , -19.1840 , -10.4576, -8.4804 , -7.7003 , -7.65120 , -0.3861 , 0.2225 , 0.5631]
+  ap = 11
+  al = 10
+  g = -2.
+  g = -0.9233
+  tdadict = {0:ap}
+  rgvars = readrgvarsplote(-0.9233 , 'plotenergy1.dat')
+  rgeq = rg.RichRedBcs(elevel, deg , sen , g , ap , rgsol = rgvars , xi = 1.)
+  print rgeq.solve()
+  exname = 'nauwkeurigomgekeerd'
+  generating_datak(rgeq, tdadict , 'g' ,-0.000001 , -9.23435 , tdafilebool = True , exname = exname)
+  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+exname+'.dat')
+
+def stijnd():
+  readdata = dr.Reader('pairing-parameters.inp', comment = '*')
+  rgeq = readdata.make_rgeq()
+  tdadict = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
+  rgeq.g = -0.0001
+  #tdadict = {0:rgeq.apair}
+  exname = 'stijnconf3'
+  #rgvars = readrgvarsplote(-0.319600 , 'plotenergystijnconf2.dat')
+  generating_datak(rgeq, tdadict , 'g' ,-0.0005 , -0.050100	, tdafilebool = False, exname = exname)
+  dvar = 'g'
+  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+exname+'.dat')
+
+def test_critical():
+  for i in range(1,8):
+    elev = [1,2] ; ont = [2*i,2] ; sen = [0,0] ; g = -0.0001
+    rgeq = rg.RichRedBcs(elev,ont,sen,g,1+i)
+    tdadict =tdadict_kleinekoppeling(rgeq.apair, rgeq.ontaardingen, rgeq.senioriteit)
+    dir = '%gcorner' %(i+1)
+    os.mkdir(dir)
+    os.chdir(dir)
+    generating_datak(rgeq,tdadict,'g',-0.001, -1.1,exname = '%g' %(i+1))
+    os.chdir('..')
+
+
 if __name__ == "__main__":
-  #test()
-  #main()
+  #testrestart()
+  main()
   #dangmain()
   #testcircumvent()
-  #testeasysolve()
-  #addlevel()
-  facintmain()
-  
+  #addlevel() #function in rgfunctions
+  #facintmain()
+  #allstatesoneg()
+  #stijnd()
+  #test_critical()
