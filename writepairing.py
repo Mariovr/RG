@@ -19,13 +19,13 @@ def main():
   """
   kp =False#for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
-  probname = 'testintmotion' #adds to the directory name where all the output data is going to be stored
-  afh = {'start':0.5 , 'end':1.99 , 'step':0.01} ; spkar = 'L' #characterizes the sp levels in the file as run = 'f' and input is a filename
-  step = {'n': -0.003,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  probname = 'testplotexc' #adds to the directory name where all the output data is going to be stored
+  afh = {'start':0.0 , 'end':1.99 , 'step':0.01} ; spkar = 'L' #characterizes the sp levels in the file as run = 'f' and input is a filename
+  step = {'n': -1.003,'p': 0.003}; ende = {'p' : 10. , 'n' : -600.} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
   rgw = True ; mov = False ; tdaf = False ; intm = True
   sign = 'n' #for runstring = k determines which instances of step and ende it receives
-  npair =6#if you use a filename as input or gives the number of pairs in the rombout system
-  nlevel = 12#if you use a filename as input or gives the number of levels in the picketfence model
+  npair = 10#if you use a filename as input or gives the number of pairs in the rombout system
+  nlevel = 20#if you use a filename as input or gives the number of levels in the picketfence model
   eta = 1.
   degeneration = degeneracies_super(nlevel) #if you use filename as input
   #set the seniority and degeneracy of the problem (in this case all to zero) REMARK: we can only do this after the definite number of sp levels is known
@@ -106,14 +106,14 @@ def main():
   
   if runstring == "f":
     #loop over file that contains the sp levels
-    generating_data(rgeq,nlevel,filename,afh,wd2,pairingd,spkar,kp,namepf = name+'.dat')
+    generating_data(rgeq,nlevel,filename,afh,wd2,pairingd,spkar,kp,namepf = name+'.dat' , rgwrite = rgw, intofmotion = intm)
     #generate some nice plots of the created data in the problem directory
-    generate_plot(nlevel,npair,depvar,plotg = True,name = name+'.dat')
-        
+    Plot_Geo_File(name+'.dat' , dvar =spkar + '(a.u.)').standard_plot(rgw,intm) 
+    
   elif runstring == "k":
     generating_datak(rgeq,pairingd,depvar,step[sign],ende[sign],rgwrite = rgw ,tdafilebool = tdaf,exname = name,moviede = mov, intofmotion = intm )       
     #generate some nice plots of the created data in the problem directory
-    generate_plot(nlevel,npair,depvar,plotg = False,name='plotenergy'+name+'.dat')
+    Plot_Data_File("plotenergy%s.dat" %name ).standard_plot(rgw , intm)
   
   elif runstring == 'e':
     '''
@@ -124,12 +124,12 @@ def main():
       assert(kleinekoppeling)
     except AssertionError:
       print 'put kleinekoppeling True because the survey of exited states commands to go from the weak interaction limit to the strong interaction limit'
-    allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf)
-    #probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf) 
+    #allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf , intm = intm)
+    probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf , intm = intm) 
   else:
     print 'runstring: %s is not a valid runstring' %runstring
    
-def generating_data(rgeq,nlevel,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namepf = 'plotenergy.dat',checkfile =False,rgwrite = True,exname = ''):
+def generating_data(rgeq,nlevel,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namepf = 'plotenergy.dat',checkfile =False,rgwrite = True, intofmotion = True , exname = ''):
   """
   function that generates the file with all the data 
   does the main job
@@ -231,13 +231,15 @@ def generating_data(rgeq,nlevel,infilename,afhw,wd2,pairingdict,afhxas,kp = Fals
         for i in range(rgeq.apair):
           plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].real ))
           plotenergyfile.write('\t%f' %( rgeq.rgsolutions[i].imag ))
+      if intofmotion == True:
+        integralsofm = rgeq.intofmotion()
+        for i in range(rgeq.alevel):
+          plotenergyfile.write('\t%f' %(integralsofm[i].real))
       plotenergyfile.write('\n')
       afh = afh + step
       if math.fabs(afh)+0.00001 > math.fabs(end) and math.fabs(afh)-0.00001 < math.fabs(end):
         break
   plotenergyfile.close()
-  if rgwrite is True:
-    plotrgvars(rgeq.apair,ref = namepf,afhvar = afhxas,namerg = 'rgvar%f%s' %(rgeq.g,exname),istart = 6 )
   ifile.close()
 
 def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True):
@@ -255,7 +257,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     os.chdir(dir) #change to the moviedirectory   
   d = calculated(rgeq.energiel,rgeq.ontaardingen)  #Calculation of the mean distance between the used sp levels
   bb = calcnintgrondtoestand(rgeq) 
-  info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is %s d = %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
+  info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is: %s \n#d:  %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
   lastkp = False #boolean to know if the last g value circumvented a critical point
   #if rgeq.rgsolutions is None we haven't determined any rg variables so the first solution has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
@@ -361,33 +363,31 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     if moviede is True:
       makemovie()
     os.chdir(olddir) #because we were in the movie dir but we want our other plots in the parentdir
-  if rgwrite == True:
-    plotrgvars(rgeq.apair, ref = "plotenergy%s.dat" %exname, afhvar = dvar,namerg = 'rgvar%s' %exname,istart = 3) 
-  if intofmotion == True:
-    plotintofmotion(rgeq.alevel , rgeq.apair , ref ="plotenergy%s.dat" %exname, afhvar = dvar , istart = 3 )
   return energierg,rgeq  
     
-def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n') :
+def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n' , intm = True) :
   '''
   function that investigates excited states
   '''
-  print rgeq
   pairingd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen,rgeq.senioriteit)
   generating_datak(rgeq,pairingd,afhxas,step[sign], ende[sign],exname = 'grondtoestand',rgwrite = rgw, moviede =mov , tdafilebool = tdaf)
-  generate_plot(rgeq.alevel,rgeq.apair,afhxas,name = 'plotenergygrondtoestand.dat', plotg = False)
   nullevel =  list(pairingd)[-1] + 1 #nullevel is the first not occupied level in pairingd (remember tdadict_kleinekoppeling gives us a dict back that only contains the lowest  possibley occupied levels)
   for j in xrange(nullevel):
     pairingd[nullevel-j-1] -= 1
-    for i in xrange(rgeq.alevel-nullevel+1):
+    for i in xrange(rgeq.alevel-nullevel):
       print 'we are calculating the following excitation: pair in level %g -> level %g ' %(j,nullevel+i)
       pairingd[nullevel+i] = 1
       extraname = str(nullevel-j-1) +'_'+str(nullevel +i)
       generating_datak(rgeq,pairingd,afhxas,step[sign],ende[sign],rgwrite = rgw,exname = extraname,moviede = mov,tdafilebool = tdaf)
       pairingd[nullevel+i] -= 1
-      generate_plot(rgeq.alevel,rgeq.apair,afhxas,name = 'plotenergy%s.dat' %extraname , plotg = False)
     pairingd[nullevel-j-1] += 1.  
     break #uncomment if you only want the lowest exited states
-  generatePlotExited(rgeq.alevel,rgeq.apair)
+  plotter = Plot_Data_File()
+  plotter.readfiles(os.getcwd() ,'plotenergy', notsearch = 'rgvar' , sortfunction = lambda x : -1. if 'ground' in x else 0) #sortfunction makes sure the groundstate is first this is important for the normalization
+  plotter.standard_plot(rgw , intm)
+  plotter.normalize_to_groundstate()
+  plotter.separated = False
+  plotter.generate_plot()
 
 def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf):
   '''
@@ -421,7 +421,7 @@ def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf):
         tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
         print 'we start generating_datak with: ', tdastartd
         generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = rgw,exname = '',moviede = mov,tdafilebool = tdaf)
-        generate_plot(rgeq.alevel,rgeq.apair,afhxas,plotg = False)
+        Plot_Data_File("plotenergy.dat").standard_plot(rgw , intm)
         os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
       i += 1
       print i
@@ -472,7 +472,7 @@ def facintmain():
   dvar = 'g'
   generate_dir('stefantda',None,None)
   generating_datak(rgeq,tdastartd,dvar,stepg,enddatak ,rgwrite = True,exname = '',moviede =True,tdafilebool = True)
-  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False)  
+  Plot_Data_File("plotenergy.dat").standard_plot(True , True)
 
 def allstatesoneg(npair = 3):
   rgeq = romboutsprob(g = -0.1)
@@ -489,7 +489,9 @@ def allstatesoneg(npair = 3):
   ontaarding = 1.
   dataanalyse = {'rgw': True , 'ple': False, 'plrg': False , 'ont': False }
   allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataanalyse = dataanalyse) 
-  plot_spectrumxichange('.','.dat') 
+  plotterxi = Plot_Xi_File(rgeq.g)
+  plotterxi.readfiles('.', 'xipath')    
+  plotterxi.plot_spectrumxichange()
 
 def testcircumvent():
   '''
@@ -515,7 +517,7 @@ def testcircumvent():
       print rgeq.g
     try:
       generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgvars = rgvar,rgwrite = True,exname = '%f' %xival,moviede = False,tdafilebool = False,xival = xival)
-      generate_plot(rgeq.alevel,rgeq.apair,afhxas,plotg = False,name = 'plotenergy%f.dat' %xival)
+      Plot_Data_File("plotenergy%f.dat" %xival).standard_plot(True , True)
     except:
       pass   
     xival += 0.1  
@@ -581,7 +583,7 @@ def testrestart():
   name = ''
   pairingd = {0:rgeq.apair}
   generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False)
-  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+name+'.dat')
+  Plot_Data_File("plotenergy.dat" ).standard_plot(True , True)
 
 def stijnijzer():
   deg = [6,4,2,8,4,6,2,2,6,10]
@@ -597,7 +599,7 @@ def stijnijzer():
   print rgeq.solve()
   exname = 'nauwkeurigomgekeerd'
   generating_datak(rgeq, tdadict , 'g' ,-0.000001 , -9.23435 , tdafilebool = True , exname = exname)
-  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+exname+'.dat')
+  Plot_Data_File("plotenergy%s.dat" %exname).standard_plot(True , True)
 
 def stijnd():
   readdata = dr.Reader('pairing-parameters.inp', comment = '*')
@@ -608,8 +610,7 @@ def stijnd():
   exname = 'stijnconf3'
   #rgvars = readrgvarsplote(-0.319600 , 'plotenergystijnconf2.dat')
   generating_datak(rgeq, tdadict , 'g' ,-0.0005 , -0.050100	, tdafilebool = False, exname = exname)
-  dvar = 'g'
-  generate_plot(rgeq.alevel,rgeq.apair,dvar,plotg = False,name='plotenergy'+exname+'.dat')
+  Plot_Data_File("plotenergy%s.dat" %exname).standard_plot(True , True)
 
 def test_critical():
   for i in range(1,8):
@@ -617,7 +618,7 @@ def test_critical():
     rgeq = rg.RichRedBcs(elev,ont,sen,g,1+i)
     tdadict =tdadict_kleinekoppeling(rgeq.apair, rgeq.ontaardingen, rgeq.senioriteit)
     dir = '%gcorner' %(i+1)
-    os.mkdir(dir)
+    #os.mkdir(dir)
     os.chdir(dir)
     generating_datak(rgeq,tdadict,'g',-0.001, -1.1,exname = '%g' %(i+1))
     os.chdir('..')
