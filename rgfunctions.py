@@ -771,4 +771,5 @@ def test():
   
  
 if __name__ == "__main__":
-  test()
+  #test()
+  make_newstyle( 'Dang120neutronwin5_5sen12.dat')

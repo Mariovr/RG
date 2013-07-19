@@ -37,7 +37,7 @@ class RichardsonEq(object):
     assert(len(self.senioriteit) == len(self.ontaardingen) == len(self.energiel))
     
   def __str__(self):
-    stringrep = '''#Stringrepresentation of RichardsonEq:
+    stringrep = '''#Stringrepresentation of RichardsonEq with subclass: %s
 #energylevels: %s
 #degeneracys: %s
 #senioritys: %s
@@ -45,7 +45,7 @@ class RichardsonEq(object):
 #the interaction constant: %s
 #the number of pairs: %s, the xivalue: %s
 #the total energy is: %s
-''' %(str(self.energiel).translate(None,'\n'),str(self.ontaardingen).translate(None,'\n'),str(self.senioriteit).translate(None,'\n'),str(self.rgsolutions).translate(None,'\n'),str(self.g),str(self.apair),str(self.xi),str(self.energy))
+''' %(self.__class__.__name__ , str(self.energiel).translate(None,'\n'),str(self.ontaardingen).translate(None,'\n'),str(self.senioriteit).translate(None,'\n'),str(self.rgsolutions).translate(None,'\n'),str(self.g),str(self.apair),str(self.xi),str(self.energy))
 
     return stringrep
   
@@ -97,8 +97,8 @@ class RichardsonEq(object):
     RETURNS: a vector with all the integrals of motion
     """
     di = 1./4.*self.ontaardingen - self.senioriteit *1./2.
-    etrans = self.etrans()
-    return di*(-1 + 2*self.g*array([sum([self.zij(etrans[i],etrans[k])*di[k] for k in range(self.alevel) if k != i]) for i in range(self.alevel)]) + 2*self.g*array( [sum([self.zij(self.rgsolutions[b],etrans[i]) for b in range(self.apair) ]) for i in range(self.alevel)]))
+    etrans, gtrans = self.iomtrans()
+    return di*(-1 + gtrans*array([sum([self.zij(etrans[i],etrans[k])*di[k] for k in range(self.alevel) if k != i]) for i in range(self.alevel)]) + gtrans*array( [sum([self.zij(self.rgsolutions[b],etrans[i]) for b in range(self.apair) ]) for i in range(self.alevel)]))
 
 class RichRedBcs(RichardsonEq):
   """
@@ -143,8 +143,8 @@ class RichRedBcs(RichardsonEq):
     """
     return 1./(i-j)
 
-  def etrans(self):
-    return 2. * self.energiel
+  def iomtrans(self):
+    return 2. * self.energiel , 2.* self.g
 
   def near_tda(self,tdasolreal,tdadict):
     """
@@ -229,11 +229,11 @@ class RichFacInt(RichardsonEq):
   def zij(self, i , j):
     return (i+j)/(i-j)
 
-  def etrans(self):
+  def iomtrans(self):
     """
     take eta always positive because otherwise there arise some problems
     """
-    return self.energiel*self.energiel*self.eta
+    return self.energiel*self.energiel*self.eta , 1./(self.eta/self.g + 1 - self.apair + self.alevel / 2. - sum(self.senioriteit)/2.)
 
   def near_tda(self,tdasolreal,tdadict):
     """
@@ -282,7 +282,7 @@ class RichFacInt(RichardsonEq):
     
   def __str__(self):
     s = super(RichFacInt,self).__str__()
-    s += '#And eta is determined by %f\n' %self.eta
+    s += '#And eta is determined by: %f\n' %self.eta
     return s
   
   def copy(self):
