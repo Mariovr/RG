@@ -419,26 +419,6 @@ def mergefiles(file1,file2,reversed = False):
 def degeneracies_super(nlevel):
   return ones(nlevel,float)*2.   
 
-def makemovie():
-  # makes a movie from all the .png files in the current directory
-  print 'Starting to create a movie, with all the .png files in directory: %s ' %str(os.getcwd())
-  dirname = str(os.getcwd())
-  command = ('mencoder',
-           'mf://*.png',
-           '-mf',
-           'type=png:w=800:h=600:fps=5',
-           '-ovc',
-           'lavc',
-           '-lavcopts',
-           'vcodec=mpeg4',
-           '-oac',
-           'copy',
-           '-o',
-           dirname+'.avi')
-
-  os.spawnvp(os.P_WAIT, 'mencoder', command)
-
-  
 def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.001,step = -0.001,exinfo ='#The paired spectrum of the neutrons of Sn120' ):
   '''
   INPUT: list(energielev) the sp energielevels, list(deg) a list with the same length as energielev, that contains the degeneracies
@@ -602,6 +582,32 @@ def binoml(n,r):
   return int( reduce( mul, range((n-r+1), n+1), 1) /
     reduce( mul, range(1,r+1), 1) )
   
+#def printtda(nlev = 12, apar = 10 , ontaardingen = [4,4,4,8,4,4,8,8,4,8,4,8,12] , senioriteit = none, startw = -1,  endw = 310000):
+def printtda(nlev = 12, apar = 6 , ontaardingen = [2,2,2,2,2,2,2,2,2,2,2,2] , senioriteit = none, startw = -1,  endw = 310000):
+  '''
+  generates a file that contains the connection between the wind parameter (the number of the state as determined by combinations with replacement)
+  and the distribution of the pairs over the sp levels at low enough g so the sp levels that contain a pair behave as the corresponding sp levels.
+  '''
+  tdacombinations = combinations_with_replacement(np.arange(0,nlev),apar)
+  if senioriteit == none:
+    senioriteit = np.zeros(nlev)
+  file = open('correspondentie.dat', 'w')
+  wind = 0
+  for tdadict in tdacombinations:
+    tdastartd = {}
+    goodsol = true
+    for i in tdadict:
+      a = tdadict.count(i)      
+      tdastartd[i] = a
+      if a*2 + senioriteit[i]*2 > ontaardingen[i]:
+        goodsol = false
+    if goodsol == true:
+      wind += 1
+      if wind >= startw and wind < endw:
+        print 'the %g th state corresponds to %s ' %( wind,str(tdastartd))
+        file.write('%g\t%s\n' %(wind,str(tdastartd)))
+  file.close()
+
 def info_1set(filehandler,rgeqstring, exinfo = '#',tdadict = None,contenergy = None):
   filehandler.write(rgeqstring)
   filehandler.write('%s' %exinfo)
