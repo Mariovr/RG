@@ -231,7 +231,8 @@ class RichFacInt(RichardsonEq):
 
   def iomtrans(self):
     """
-    take eta always positive because otherwise there arise some problems
+    take eta always positive because otherwise some problems arise 
+    Transforms the values so they fit in zij and the general formula for the calculation of the integrals of motion.
     """
     return self.energiel*self.energiel*self.eta , 1./(self.eta/self.g + 1 - self.apair + self.alevel / 2. - sum(self.senioriteit)/2.)
 
@@ -382,7 +383,7 @@ class RichardsonSolver(object):
     conarray = [] 
     testend = False
     while(self.richeq.xi != xiend):
-      #print 'xi', self.richeq.xi 
+      print 'xi', self.richeq.xi 
       if ((self.richeq.xi + xistep >= xiend and xistep > 0) or (self.richeq.xi +xistep <= xiend and xistep <0 ) ) and testend == False:
         xistep /= 100. ; testend = True ; conarray = []
       rgsol = self.assurecontinuity(conarray,xistep,xiend,crit)

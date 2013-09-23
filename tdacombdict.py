@@ -12,10 +12,10 @@ REMARK this file is totally DEPRECATED from 30/07/2013 on because everything it'
 
 """
 
-def extract(string , regexp, group = none):
+def extract(string , regexp, group = None):
   regex = re.compile(regexp)
   match = regex.match(string)
-  if group == none:
+  if group == None:
     return match.group(0)
   else:
     return match.group(group)
@@ -41,26 +41,26 @@ def collectrgcloud(filepath, g , npair , collectlist):
     collectlist.append(state+'  ' +'  '.join(map(str,data))+'\n') 
   file.close()
   
-#def printtda(nlev = 12, apar = 10 , ontaardingen = [4,4,4,8,4,4,8,8,4,8,4,8,12] , senioriteit = none, startw = -1,  endw = 310000):
-def printtda(nlev = 12, apar = 6 , ontaardingen = [2,2,2,2,2,2,2,2,2,2,2,2] , senioriteit = none, startw = -1,  endw = 310000):
+#def printtda(nlev = 12, apar = 10 , ontaardingen = [4,4,4,8,4,4,8,8,4,8,4,8,12] , senioriteit = None, startw = -1,  endw = 310000):
+def printtda(nlev = 12, apar = 6 , ontaardingen = [2,2,2,2,2,2,2,2,2,2,2,2] , senioriteit = None, startw = -1,  endw = 310000):
   '''
   generates a file that contains the connection between the wind parameter (the number of the state as determined by combinations with replacement)
   and the distribution of the pairs over the sp levels at low enough g so the sp levels that contain a pair behave as the corresponding sp levels.
   '''
   tdacombinations = combinations_with_replacement(np.arange(0,nlev),apar)
-  if senioriteit == none:
+  if senioriteit == None:
     senioriteit = np.zeros(nlev)
   file = open('correspondentie.dat', 'w')
   wind = 0
   for tdadict in tdacombinations:
     tdastartd = {}
-    goodsol = true
+    goodsol = True
     for i in tdadict:
       a = tdadict.count(i)      
       tdastartd[i] = a
       if a*2 + senioriteit[i]*2 > ontaardingen[i]:
-        goodsol = false
-    if goodsol == true:
+        goodsol = False
+    if goodsol == True:
       wind += 1
       if wind >= startw and wind < endw:
         print 'the %g th state corresponds to %s ' %( wind,str(tdastartd))
@@ -72,7 +72,7 @@ def plotrgcloud(name,npair,g):
   namef = open(name,'r')
   namerg = 'rgcould'+name
   pl.figure()
-  start = false
+  start = False
   revar = [] ; imvar = [] ; energie = []
   for line in namef:
     if line[0] is '#':
@@ -95,7 +95,7 @@ def plotrgcloud(name,npair,g):
   pl.savefig('%s.png' %(namerg))
   pl.close()
 
-def find(func,rootdir,arg = none):
+def find(func,rootdir,arg = None):
   #call function for all rgvar files in rootdir
   print 'entering find function with %s as rootdir ,  %s as the function that is going to be executed' %(rootdir, func)
   files = os.listdir(rootdir)
@@ -135,8 +135,8 @@ def main():
 
 
 if __name__ == '__main__':
-  main() 
-  #printtda()
+  #main() 
+  printtda()
 
 
 
