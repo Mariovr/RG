@@ -10,6 +10,7 @@ import newtonraphson as nr
 import rgfunctions as rgf
 #source code krylov solver is at scipy/optimize/nonlin.py
 
+    
 class XiError(Exception):
   def __init__(self,xi,energy,rgvars):
     self.xi = xi
@@ -32,7 +33,10 @@ class RichardsonEq(object):
     self.g = kop_
     self.apair = apair_
     self.alevel = len(self.energiel)
-    self.rgsolutions = rgsol
+    if rgsol == None:
+      self.rgsolutions = None
+    else: 
+      self.rgsolutions = array(rgsol)
     self.energy = None
     assert(len(self.senioriteit) == len(self.ontaardingen) == len(self.energiel))
     
@@ -68,10 +72,17 @@ class RichardsonEq(object):
  
   def getvar(self,var):
     #handy to create general programs
-    return getattr(self,var)
+    askedvar =  getattr(self,var)
+    if isinstance(askedvar , complex):
+      return askedvar.real
+    else:
+      return askedvar
 
   def get_solutions(self):
     return self.rgsolutions
+
+  def set_rgsolutions(self,rgsol):
+    self.rgsolutions = array(rgsol)
   
   def setvar(self,var,val):
     setattr(self,var,val)
@@ -568,7 +579,7 @@ def maintest():
   more efficient is a huge timewinst. And making it more flexible will cause much better code
   '''
   #picket fence model
-  nlev = 12
+  nlev = 16
   eendlev = np.arange(1,nlev+1)
   ontaardingen = np.ones(nlev,float)*2
   senioriteit = np.zeros(nlev,float)
@@ -583,9 +594,10 @@ def maintest():
   g = -0.075
   '''
   eta = 1.
-  g = -1.0000
+  g = -0.0100
   #tdastartd = {0:0,1:2,2:0,3:0,4:1,5:0}
   tdastartd = {0:apair }
+  tdastartd = rgf.tdadict_kleinekoppeling(apair,ontaardingen,senioriteit)
   alevel = len(eendlev)
   #print ontaardingen,senioriteit,eendlev
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
@@ -593,8 +605,8 @@ def maintest():
   a = RichardsonSolver(rgeq)
   rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
   print rgeq.intofmotion()
-  #tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
-  #print tdad 
+  tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
+  print tdad 
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)
@@ -609,7 +621,7 @@ def test_copy():
   print rgeq.energiel , d.energiel
   d.g = -10.
   print rgeq.g , d.g
-  
+
 if __name__ == "__main__":
   maintest()
   #test_copy()

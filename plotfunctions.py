@@ -127,7 +127,10 @@ class Plot_RG_Files(object):
               self.dvar = match.group(1) + ' (a.u.)'
           if 'eta' in line:
             match = re.search(r':*\s*(\d+)', line) #after some time remove first star because then the new __str__ function of the RichardsonEq class is already established so the match is better
-            self.eta = int(match.group(1))
+            try:
+              self.eta = int(match.group(1))
+            except AttributeError:
+              pass
         else:
           break
     if elev != None:

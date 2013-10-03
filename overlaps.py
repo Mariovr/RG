@@ -94,7 +94,7 @@ def create_tdafile(rgeq , dvar , begin = -0.0001 , end = -2. , step = -0.001 , f
     file.write('%f %s\n' %(tda.getvar(dvar), '  '.join(map(str,tda.get_solutions()))))
     begin += step
   file.close()
-  
+
 def list_to_dict(tdalist, nlevel):
   return dict(zip(np.arange(nlevel), tdalist))
 
@@ -165,18 +165,18 @@ def writelegend(ax,cvar):
   ax.legend(loc = 2 , prop = fontL , bbox_to_anchor = (1.00,1.00) , fancybox = True , shadow = True)
   pl.xlabel(cvar )
 
-def writetext(ax):
-  ax.text(-6.901,0.98,'{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}' , horizontalalignment = 'left', fontsize = 8)
-  ax.text(-6.901,0.80,'{0:1 , 1:1 , 2:1 , 3:1 ,4:2}' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = 8)
-  ax.text(-6.9011,0.60,'{0:1 , 1:1 , 2:1 , 3:3 }' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = 8)
-  ax.text(-6.9011,0.48,'{0:2 , 1:1 , 2:1 , 3:1 ,4:1}' , rotation = 5, horizontalalignment = 'left', fontsize = 8)
-  ax.text(0.91,0.65,'{0:6}' , horizontalalignment = 'right', fontsize = 8)
-  ax.text(1.05,0.42,'{0:5 , 1:1}' , horizontalalignment = 'left', fontsize = 8)
-  ax.text(-1.30,0.90,'{0:1 , 1:5}' , rotation =-60 , fontsize = 8 , horizontalalignment = 'left')
-  ax.text(1.43,0.29,'{0:1 , 1:1 , 2:4}' , rotation =-20 ,horizontalalignment = 'right', fontsize = 8)
-  ax.text(0.910, 0.23,'{0:4 , 1:1 , 2:1}' , rotation = -20 ,horizontalalignment = 'right', fontsize = 8)
-  ax.text(-6.9011,0.39,'{0:3 , 1:1 , 2:1 , 3:1 }' ,horizontalalignment = 'left', fontsize = 8)
-  ax.text(1.43 ,0.172 , '{0:2 , 1:1 , 2:1 , 3: 2}' , rotation = -20 ,horizontalalignment = 'right', fontsize = 8) #, color = 'black', style = 'italic')
+def writetext(ax , fs= 10):
+  ax.text(-6.901,0.98,'{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-6.901,0.80,'{0:1 , 1:1 , 2:1 , 3:1 ,4:2}' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-6.9011,0.60,'{0:1 , 1:1 , 2:1 , 3:3 }' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-6.9011,0.53,'{0:2 , 1:1 , 2:1 , 3:1 ,4:1}' , rotation = 5, horizontalalignment = 'left', fontsize = fs)
+  ax.text(0.91,0.65,'{0:6}' , horizontalalignment = 'right', fontsize = fs)
+  ax.text(1.05,0.42,'{0:5 , 1:1}' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-1.30,0.90,'{0:1 , 1:5}' , rotation =-60 , fontsize = fs , horizontalalignment = 'left')
+  ax.text(1.43,0.29,'{0:1 , 1:1 , 2:4}' , rotation =-20 ,horizontalalignment = 'right', fontsize = fs)
+  ax.text(0.910, 0.23,'{0:4 , 1:1 , 2:1}' , rotation = -20 ,horizontalalignment = 'right', fontsize = fs)
+  ax.text(-6.9011,0.39,'{0:3 , 1:1 , 2:1 , 3:1 }' ,horizontalalignment = 'left', fontsize = fs)
+  ax.text(1.43 ,0.172 , '{0:2 , 1:1 , 2:1 , 3: 2}' , rotation = -20 ,horizontalalignment = 'right', fontsize = fs) #, color = 'black', style = 'italic')
   pl.xlabel( 'log|g|')
 
 
@@ -196,15 +196,15 @@ def main():
   ont = np.ones(12)*2.
   sen = np.zeros(12)
   apair = 6
-  g = -0.500050  
-  cvar = 'g'
+  g = -11.001000 
+  cvar = 'eta'
   eta = 1.
-  filen = 'plotenergy.dat'
-  outputf = 'overlapfac5.dat' 
+  filen = 'plotenergygbig.dat'
+  outputf = 'overlapfac5ti.dat' 
   richvars = open(filen,'r')
   outfile = open(outputf, 'w')
-  tdadictlist = [{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}, {0:6} , {0:1 , 1:5} , {0:5 , 1:1},{0:1 , 1:1 , 2:4} ,{0:1 , 1:1 , 2:1 , 3:1 ,4:2},{0:4 , 1:1 , 2:1}, {0:2 , 1:1 , 2:1 , 3: 2}, {0:2 , 1:1 , 2:1 , 3:1 ,4:1},{0:3 , 1:1 , 2:1 , 3:1 },{0:1 , 1:1 , 2:1 , 3:3 } , {1:6}]
-  richvars = windfile(richvars , None )
+  tdadictlist = [{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}, {0:6} , {0:1 , 1:5} , {0:5 , 1:1},{0:1 , 1:1 , 2:4} ,{0:1 , 1:1 , 2:1 , 3:1 ,4:2},{0:4 , 1:1 , 2:1}, {0:2 , 1:1 , 2:1 , 3: 2}, {0:2 , 1:1 , 2:1 , 3:1 ,4:1},{0:3 , 1:1 , 2:1 , 3:1 },{0:1 , 1:1 , 2:1 , 3:3 } ]
+  richvars = windfile(richvars , g)
   dvar , rgvars = readrgvarsplote(richvars , apair,linespacing = 1) 
   rgeq = rg.RichFacInt(energiel, ont , sen , g ,eta, apair,xi = 1.,rgsol = rgvars )
   rgeq.setvar(cvar,dvar)
@@ -220,7 +220,7 @@ def main():
       ovlap = rgeqstate.calc_overlap(tdastate)
       overlaplist.append(ovlap)
     outfile.write('%f  %s\n' %(dvar , '  '.join(map(str,overlaplist))) )
-    dvar , rgvars = readrgvarsplote(richvars , apair ,linespacing = 10) 
+    dvar , rgvars = readrgvarsplote(richvars , apair ,linespacing = 100000) 
     rgeq.setvar(cvar,dvar)
     rgeq.rgsolutions = rgvars
     tda.setvar(cvar , dvar)
