@@ -73,10 +73,15 @@ class RichardsonEq(object):
   def getvar(self,var):
     #handy to create general programs
     askedvar =  getattr(self,var)
-    if isinstance(askedvar , complex):
-      return askedvar.real
-    else:
-      return askedvar
+    """
+    REMARK ERROR ERROR: for some reason I give only the real part back when it is a complex variable (please find out why I implemented it like this).
+    This gives problems with the circumvention of critical points so i commented it out (whatever the reason was solve it on a different way if you remember it back).
+    """
+    #if isinstance(askedvar , complex):
+    #  return askedvar.real
+    #else:
+    #  return askedvar
+    return  getattr(self,var)
 
   def get_solutions(self):
     return self.rgsolutions

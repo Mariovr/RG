@@ -195,19 +195,19 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
     filecol =File_Collector(dirname , search , notsearch = notsearch ,filelist = filelist , sortfunction = sortfunction , rev =rev )
     self.readdata(filecol.plotfiles, regexp = regexp ,  substr = substr)
 
-  def generate_plot(self):
+  def generate_plot(self, xlimg = None , ylimg =None):
     """
     some nice plots to visualize the data with matplotlib, plotg = true if you plot the energylevels of the sp levels of a geometry file
     """
     print ('start with the generation of plots')
     #plot of condensation energy
-    self.plotwrap(0,1, 'condensation energy (a.u.)' , 'ce',titel = 'the condensation energy (a.u.)')
-    self.plotwrap(0,2, 'energy (a.u.)' , 'ge', titel = 'the energy (a.u.)' )
+    self.plotwrap(0,1, 'condensation energy (a.u.)' , name = 'ce',titel = 'the condensation energy (a.u.)',xlim = xlimg , ylim = ylimg )
+    self.plotwrap(0,2, 'energy (a.u.)' , name = 'ge', titel = 'the energy (a.u.)', xlim = xlimg , ylim = ylimg )
 
-  def plotwrap(self, xindex, yindex, yas, name = None, titel = None ,color = 'r' , sort = '' , label = None ):
+  def plotwrap(self, xindex, yindex, yas, name = None, titel = None ,color = 'r' , sort = '' , label = None , xlim = None , ylim = None ):
     for i in range(len(self.datarg)):
-      self.layout(self.dvar , yas , tit = titel)
       self.fig.axes[0].plot(self.datarg[i][:,xindex],self.datarg[i][:,yindex], color+sort , label = label)
+      self.layout(self.dvar , yas , tit = titel, xlim = xlim , ylim = ylim)
       if self.separated == True:
         self.savefig(name, filenum = i)
     if self.separated == False:
@@ -312,20 +312,20 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
       self.datarg[i][:,1:] = self.datarg[i][:,1:] - gronddat[:,1:] #we made sure that the data of the groundstateenergy is first in the rgdata list
     del(self.datarg[0], self.prefix[0])
 
-  def layout(self ,  xlab , ylab , xlim = None , ylim = None , tit = None , axnum = 0 , legendhand = None , legendlab = None , legendpos = 'best' , finetuning = False , axbg = None):
+  def layout(self ,  xlab , ylab , xlim = None , ylim = None , tit = None , axnum = 0 , legendhand = None , legendlab = None , legendpos = 'best' , finetuning = False , axbg = None , fs = 12):
     """
     In this function we finetune some aspects of the axes for all the tuning possibilitys see: http://matplotlib.org/api/axes_api.html
     especially the set functions ;)
     """
     print('We are starting with the layout')
-    self.fig.axes[axnum].set_xlabel(xlab)
-    self.fig.axes[axnum].set_ylabel(ylab)
+    self.fig.axes[axnum].set_xlabel(xlab, fontsize = fs)
+    self.fig.axes[axnum].set_ylabel(ylab , fontsize = fs)
     if xlim != None:
       self.fig.axes[axnum].set_xlim(xlim) #good value for xlim in the case of a xi path is : (2*self.rgeq.energiel[0]-5*(self.rgeq.energiel[1]-self.rgeq.energiel[0]),2*self.rgeq.energiel[-1]+0.5) 
     if ylim != None:
       self.fig.axes[axnum].set_ylim(ylim)
     if tit != None:
-      self.fig.axes[axnum].set_title(tit)
+      self.fig.axes[axnum].set_title(tit , fontsize = fs)
     if legendlab != None:
       self.fig.axes[axnum].legend(legendhand , legendlab, loc = legendpos)  #if you want to add extra info
     """
@@ -483,16 +483,16 @@ class Plot_Xi_File(Plot_RG_Files):
   def plotrgvarsxi(self, name = 'rgvxi' ,xlim = None , ylim = None):
     for j in xrange(len(self.datarg)):
       for i in np.arange(self.rgindex,2*self.apair+self.rgindex,2):
-        self.fig.axes[0].plot(self.datarg[j][0,i],self.datarg[j][0,i+1],'g.', markersize = 10) #Richardson-Gaudin solutions (xi = 1)
-        self.fig.axes[0].plot(self.datarg[j][len(self.datarg[j][:,0])-1,i],self.datarg[j][len(self.datarg[j][:,0])-1,i+1],'r.',mfc = 'None', markersize = 10) # Corresponding tda solutions (xi = 0 )
-        self.fig.axes[0].plot(self.datarg[j][:,i],self.datarg[j][:,i+1],'b-') # intermediate values of xi
+        self.fig.axes[0].plot(self.datarg[j][0,i],self.datarg[j][0,i+1],'b.', markersize = 23) #Richardson-Gaudin solutions (xi = 1)
+        self.fig.axes[0].plot(self.datarg[j][len(self.datarg[j][:,0])-1,i],self.datarg[j][len(self.datarg[j][:,0])-1,i+1],'b.',mfc = 'None', markersize = 23) # Corresponding tda solutions (xi = 0 )
+        self.fig.axes[0].plot(self.datarg[j][:,i],self.datarg[j][:,i+1],'b-' , lw =2) # intermediate values of xi
       if self.eta == None:
         sing = np.array(self.energiel)* 2
       else:
         sing = self.eta * np.array(self.energiel) * np.array(self.energiel)
       for i in range(self.alevel):
         self.fig.axes[0].axvline(x = sing[i] ,c=  'k',linestyle = '--')
-      self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'Richardson-Gaudin variables at g = %s (xi in [0,1])' %(self.kpunten[j][0][0]))
+      self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s ' %(self.kpunten[j][0][0]) , fs = 20)
       if self.separated == True:
         self.savefig(name , filenum = j)
     if self.separated == False:
@@ -594,7 +594,7 @@ def main(option, args):
     if option is 'xipath':
       plotterxi.procesfiles(args[0],args[1] , regexp = r'constant:\s*([\-0-9.]+)')
       plotterxi.separated = True
-      plotterxi.plotrgvarsxi(ylim = None , xlim = (None,0.2))
+      plotterxi.plotrgvarsxi(ylim = None , xlim = None)
 
     if option is 'specxichange':
       #to plot entire spectra with broken down in red and states who went from xi = 0 to xi =1 in blue

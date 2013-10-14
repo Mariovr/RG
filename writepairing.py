@@ -20,16 +20,16 @@ def main():
   kp =False#for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
   afh = {'start':0.0 , 'end':1.99 , 'step':0.01} ; spkar = 'L' #characterizes the sp levels in the file as run = 'f' and input is a filename
-  step = {'n': -1.001,'p': 0.003}; ende = {'p' : 10. , 'n' : 0.001} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  step = {'n': -0.001,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.001} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
   rgw = True ; mov = False ; tdaf = False ; intm = True
   sign = 'n' #for runstring = k determines which instances of step and ende it receives
-  npair = 6#if you use a filename as input or gives the number of pairs in the rombout system
+  npair = 3#if you use a filename as input or gives the number of pairs in the rombout system
   nlevel = 12#if you use a filename as input or gives the number of levels in the picketfence model
   eta = 1. 
   degeneration = degeneracies_super(nlevel) #if you use filename as input
   #set the seniority and degeneracy of the problem (in this case all to zero) REMARK: we can only do this after the definite number of sp levels is known
   #dictionary that determines the start tda solutions is only used when runstring = 'f' (when kp is True) or 'k'
-  tdadict = False#{0:6}# if True we use tdadict_kleinekoppeling (small int. limit), if False we use the tdadict when all pairs are in the lowest sp level(strong int. limit)if you want to probe a particular state just set this as a dict: {splev : np , splev : np , ...} (put always True if you want to probe excited states)
+  tdadict = True#{0:6}# if True we use tdadict_kleinekoppeling (small int. limit), if False we use the tdadict when all pairs are in the lowest sp level(strong int. limit)if you want to probe a particular state just set this as a dict: {splev : np , splev : np , ...} (put always True if you want to probe excited states)
   restart = False#Set this variable true when the current calculation is a follow up of a former calculation so it is possible to read the Richardson-Gaudin variables of the last point back in.
   wd2 = -50. #(wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable is not defined (wd < 0) then the number of sp levels stays constant
   #handling of input variables
