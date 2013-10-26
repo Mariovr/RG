@@ -197,6 +197,11 @@ class RichRedBcs(RichardsonEq):
     d.energy = self.energy
     return d
 
+class RichDWave(RichRedBcs):
+  """
+  Class that solves the d-wave pairing model, Introduced in: "Integrability of an extended d+id-wave pairing Hamiltonian. by Ian Marquette, Jon Links (2012)"
+  """
+
 class RichFacInt(RichardsonEq):
   """
   Class that defines the bethe ansatz equations for a factorisable interaction (see Stijn notes) or the

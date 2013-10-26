@@ -207,10 +207,11 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
   def plotwrap(self, xindex, yindex, yas, name = None, titel = None ,color = 'r' , sort = '' , label = None , xlim = None , ylim = None ):
     for i in range(len(self.datarg)):
       self.fig.axes[0].plot(self.datarg[i][:,xindex],self.datarg[i][:,yindex], color+sort , label = label)
-      self.layout(self.dvar , yas , tit = titel, xlim = xlim , ylim = ylim)
       if self.separated == True:
+        self.layout(self.dvar , yas , tit = titel, xlim = xlim , ylim = ylim)
         self.savefig(name, filenum = i)
     if self.separated == False:
+      self.layout(self.dvar , yas , tit = titel, xlim = xlim , ylim = ylim)
       self.savefig(name + 'together')
 
   def plotrgvarscplane(self, interval = (-20 , 0), label = None):
@@ -235,10 +236,11 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
           self.fig.axes[axnum].plot(self.datarg[j][begin:stop,i],self.datarg[j][begin:stop,i+1], color+sort , label = label)
         else:
           self.fig.axes[axnum].plot(self.datarg[j][begin:stop,0],self.datarg[j][begin:stop,i] , label = label)
-      self.layout(xas , yas , tit = tit)
       if self.separated == True and save:
+        self.layout(xas , yas , tit = tit)
         self.savefig(name , filenum = j)
     if self.separated == False and save:
+      self.layout(xas , yas , tit = tit)
       self.savefig(name + 'together')
     
   def plotintofmotion(self,name = 'iom',stop =None,begin = 0 , xlim = None , ylim = None , samedir = False , colormap = None, axbg = None):
@@ -492,10 +494,11 @@ class Plot_Xi_File(Plot_RG_Files):
         sing = self.eta * np.array(self.energiel) * np.array(self.energiel)
       for i in range(self.alevel):
         self.fig.axes[0].axvline(x = sing[i] ,c=  'k',linestyle = '--')
-      self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s ' %(self.kpunten[j][0][0]) , fs = 20)
       if self.separated == True:
+        self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s ' %(self.kpunten[j][0][0]) , fs = 20)
         self.savefig(name , filenum = j)
     if self.separated == False:
+      self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s ' %(self.kpunten[j][0][0]) , fs = 20)
       self.savefig(name + 'together')
 
 class Plot_All_File(Plot_RG_Files):

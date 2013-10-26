@@ -20,10 +20,10 @@ def main():
   kp =False#for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
   afh = {'start':0.0 , 'end':1.99 , 'step':0.01} ; spkar = 'L' #characterizes the sp levels in the file as run = 'f' and input is a filename
-  step = {'n': -0.001,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.001} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  step = {'n': -0.001,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.00} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
   rgw = True ; mov = False ; tdaf = False ; intm = True
   sign = 'n' #for runstring = k determines which instances of step and ende it receives
-  npair = 3#if you use a filename as input or gives the number of pairs in the rombout system
+  npair = 8#if you use a filename as input or gives the number of pairs in the rombout system
   nlevel = 12#if you use a filename as input or gives the number of levels in the picketfence model
   eta = 1. 
   degeneration = degeneracies_super(nlevel) #if you use filename as input
@@ -38,6 +38,8 @@ def main():
   parser.add_option('-f','--filename',dest = 'filename' ,default = None,type = str, help = 'File of which each line consists of a dependend variable and the corresponding sp energylevels (seperated by tabs)')
   parser.add_option('-v','--variable',dest = 'depvar',default = 'g' , help = 'Give the string representation of the independend variable that is going to be changed')
   parser.add_option('-i','--interactionc',dest = 'interactionconstant',default = -0.0001,type = float,help = 'Give the pairing strength')
+  parser.add_option('-l','--levels', dest = 'levels' , default = None , help = 'Give the number of levels')
+  parser.add_option('-p','--pairs',dest = 'pairs',default = None,help = 'Give the number of pairs')
   parser.add_option('-r','--run', dest = 'runstring' , default = 'k' , help = 'Give the mainrun you want the program to execute (f file , k one parameter changes , e excited states)')
   parser.add_option('-H' , '--hamiltonian' , dest = 'hamiltonian' , default = 'r' , help = 'Give the hamiltonian you want to solve: \'r\' is the red. bcs. Hamiltonian, \'f\' is the fac. int. Hamiltonian')
   parser.add_option('-n', '--inputname', dest = 'inputname' , default = None , help = 'If you don\'t use a file to get the sp levels choose some predefined sets: r (rombouts:2010) , s (sambataro:2008)' )
@@ -49,6 +51,8 @@ def main():
   runstring = options.runstring
   typeint = options.hamiltonian
   inputname = options.inputname
+  if options.levels != None: nlevel = int(options.levels)
+  if options.pairs != None: npair = int(options.pairs)
   wafh= afh['start']
   
   #creation of directory name where we save the output of the run
@@ -57,7 +61,7 @@ def main():
     assert(tdadict == True)
   name = "run%stype%sname%sf%sp%gl%gdv%sg%s" %(runstring,typeint,inputname,filename,  npair,nlevel,depvar,interactionconstant) 
   if args: 
-    name = args[0] +'prob' + name
+    name = args[0] + name
   #generate seperate dir for the solved problem
   if restart != True:
     generate_dir(name,filename,None) #if filename is None nothing will be copied in the directory see the implementation of generate_dir in rgfunctions
@@ -407,10 +411,9 @@ def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf ,intm = True , 
       os.chdir(cwd)
   else:
     tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
-    onezipper = np.ones(rgeq.apair)
     tdacor = open('tdacor.dat','w')
     tdacor.write('#This file contains the correspondence between the directorys and the start tda distributions \n #The first column is the directory number and on the same line is the tda start distribution written \n')
-    i = 0
+    i = 0 #the i parameter makes it easy to restart after a failure just but i in the condition bigger as the i at failure
     for a in [0,1]:
       if a == 0:
         enddatak = ende['n'];   stepg = step['n']
@@ -428,18 +431,27 @@ def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf ,intm = True , 
             goodsol = False
         if goodsol == False:
           continue
+        if i == 0: exname = 'grond' #important for the plot of the spectrum
+        else: exname = ''
         if i > -1: #parameter to restart easely after failure
           generate_dir('%g' %i,None,None) #only handy for a small amount of levels
           #tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
           tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
           print 'we start generating_datak with: ', tdastartd
-          generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = rgw,exname = '',moviede = mov,tdafilebool = tdaf)
+          generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = rgw,exname = exname,moviede = mov,tdafilebool = tdaf)
           Plot_Data_File("plotenergy.dat").standard_plot(rgw , intm)
           os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
         i += 1
         print i
       tdacor.close()
-
+      
+    plotter = Plot_Data_File()
+    plotter.procesfiles('.','plotenergy', notsearch = '.swp' , sortfunction = lambda x : -1. if 'grond' in x else 0.) #sortfunction makes sure the groundstate is first this is important for the normalization
+    plotter.normalize_to_groundstate()
+    plotter.separated = False
+    #plotter.generate_plot(xlimg = (-0.21,0) , ylimg = (0,50), name = 'zoom')
+    plotter.generate_plot(xlimg = None , ylimg = None, name = 'big')
+  
 def romboutsprob():
   #definition of problem of artikel stefan:2010 (endg is typically -0.075 , and apair = 10)
   eendlev = array([0.04,0.08,0.16,0.20,0.32,0.36,0.40,0.52,0.64,0.68,0.72,0.8,1])
@@ -513,7 +525,7 @@ def testcircumvent():
   generate_dir('testcircumventlowxifacintrest2',None,None)
   print tdastartd
   xival =1.
-  while xival <= 1.:
+  while xival >= 0.:
     try:
       rgeq2 = rg.RichardsonSolver(rgeq.copy()).main_solve(tdastartd,xistep = 0.01,xival=xival)   
     except rg.XiError:
@@ -614,7 +626,6 @@ def test_critical():
 
 
 if __name__ == "__main__":
-  #testrestart()
   main()
   #dangmain()
   #testcircumvent()
