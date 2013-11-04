@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 #! /usr/bin/env python
 import numpy as np
-from numpy import array, zeros, ones, arange,copy
+from numpy import array, zeros, ones, arange,copy , fromiter , reshape
 from numpy import append, delete
 from math import sqrt
 import pylab as pl
 
 import richardsongaudin as rg
 import rgfunctions as rgf
+import timergfunctions as tf
 
 class CorrelationFunction(object):
   """
@@ -17,20 +18,31 @@ class CorrelationFunction(object):
   def __init__(self, rgeq):
     self.rgeq = rgeq
     self.gaudinmatrix = self.get_gaudinmatrix()
+    self.norm = self.get_norm()
 
   def gaudinfunction(self,a,b):
     if a != b:
-      return 2./(self.rgeq.rgsolutions[a] -self.rgeq.rgsolutions[b])**2
+      return 2./(self.rgeq.rgsolutions[a] -self.rgeq.rgsolutions[b])**2.
     else:
-      esom = np.sum(1./(self.rgeq.rgsolutions[a] *self.rgeq.energiel)**2) - 2. *np.sum(1./ (self.rgeq.rgsolutions[a] - np.delete(self.rgeq.rgsolutions,a))**2 ) 
-      return esom
+      return np.sum(1./(self.rgeq.rgsolutions[a] -self.rgeq.energiel)**2.) - 2. *np.sum(1./ (self.rgeq.rgsolutions[a] - np.delete(self.rgeq.rgsolutions,a))**2. ) 
 
-  def get_gaudinmatrix(self): 
-    gmat = zeros((self.rgeq.apair, self.rgeq.apair), np.complex)
-    for i in range(self.rgeq.apair):
-      for j in range(self.rgeq.apair):
-        gmat[i,j] = self.gaudinfunction(i,j)
-    return  gmat 
+  def get_gaudinmatrix(self):
+    ap = self.rgeq.apair #to boost the speed a bit
+    gmat = fromiter((self.gaudinfunction(i,j) for i in xrange(ap) for j in xrange(ap)), np.complex)
+    gmat = reshape(gmat , (ap,ap))
+    return gmat
+
+  def jfunction(self,a,b):
+    pass
+
+  def get_jmatrix(self, rgeq2):
+    """
+    Implements the overlaps of an eigenstate of H with a state build with some general rapidities w -> equal to gaudinmatrix with same rapidities 
+    """
+    pass
+
+  def get_overlap(self,corf):
+    pass
 
   def K(self, l,q , alpha):
     return (self.rgeq.rgsolutions[l] - self.rgeq.energiel[alpha])/(self.rgeq.rgsolutions[l] - self.rgeq.rgsolutions[q] )
@@ -38,7 +50,6 @@ class CorrelationFunction(object):
   def get_dmatrix(self,alpha,beta,q):
     dmat = np.zeros((self.rgeq.apair , self.rgeq.apair), np.complex)
     for i in range(0,self.rgeq.apair):
-      print dmat
       if i > q:
         dmat[:,i] = self.gaudinmatrix[:,i]
       elif i ==q:
@@ -58,7 +69,7 @@ class CorrelationFunction(object):
 
   def get_correlationzz(self , alpha, beta):
     som = 0
-    norm = self.normstate()
+    norm = self.norm
     eersteterm = norm/4. 
     for q in range(self.rgeq.apair):
       dmatab = self.get_dmatrix(alpha,beta,q)
@@ -68,13 +79,12 @@ class CorrelationFunction(object):
     som += eersteterm
     return som 
 
-  def normstate(self):
+  def get_norm(self):
     return np.linalg.det(self.gaudinmatrix)
 
 def maintest():
   '''
-  test main for main_rgsolver (which is an extraordinary important function) making that function
-  more efficient is a huge timewinst. And making it more flexible will cause much better code
+  test main for the correlationcoef calculator 
   '''
   #picket fence model
   nlev = 6
@@ -92,7 +102,7 @@ def maintest():
   g = -0.075
   '''
   eta = 1.
-  g = -0.0100
+  g = -0.10000
   tdastartd = {0:apair }
   tdastartd = rgf.tdadict_kleinekoppeling(apair,ontaardingen,senioriteit)
   alevel = len(eendlev)
@@ -101,9 +111,16 @@ def maintest():
   beta =0
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
   rgeq = rg.RichRedBcs(eendlev,ontaardingen,senioriteit,g,apair)
+  rgf.generate_dir("cortest",None)
   a = rg.RichardsonSolver(rgeq)
-  rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
+  rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = False,plotrgvarpath = False, plotepath = False,xlim = None , ylim = None)
   corcal = CorrelationFunction(rgeq)
+  print corcal.norm
+  print corcal.gaudinmatrix
+  print rgeq.rgsolutions
+  #tf.timer(corcal.get_gaudinmatrix2 , repetitions = 100)
+  #tf.timer(corcal.get_gaudinmatrix, repetitions = 100)
+  """
   mp = [] ; zz = [] ; xw = []
   for i in range(nlev):
     cmpp = corcal.get_correlationmp(alpha,i)
@@ -115,9 +132,12 @@ def maintest():
     xw.append(i/float(nlev))
   pl.plot(xw , mp )
   pl.title('mp')
+  pl.savefig('mp.png')
   pl.plot(xw , zz )
   pl.title('zz')
+  pl.savefig('zz.png')
   pl.show()
+  """
 
 if __name__ == "__main__":
   maintest()

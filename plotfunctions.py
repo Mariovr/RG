@@ -222,14 +222,14 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
           self.fig.axes[0].plot(self.datarg[k][self.kpunten[filenum][j][1] + interval[0]:self.kpunten[k][j][1] + interval[1],i],self.datarg[k][self.kpunten[k][j][1]+interval[0]:self.kpunten[k][j][1] + interval[1],i+1] , 'b' , label = label)
         self.savefig('%f' % (float(self.kpunten[k][j][0])), filenum = k) # you never want this together
 
-  def plotrgvars(self,cplane = False , begin = 0 , stop = None, name = '' , save = True , axnum = 0):
+  def plotrgvars(self,cplane = False , begin = 0 , stop = None, name = '' , save = True , axnum = 0, xlim = None , ylim = None):
     print('starting to plot the Richardson-Gaudin variables')
-    self.plotrgwrap(self.rgindex, 2*self.apair+self.rgindex , self.dvar , 'real part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 're'+ name , begin = begin , stop =stop , save = save)
-    self.plotrgwrap(self.rgindex+1, 2*self.apair+self.rgindex+1 , self.dvar ,'imaginary part rgvars (a.u.)',axnum = axnum , tit = 'Richardson-Gaudin variables', name = 'im'+ name, begin = begin , stop = stop  , save = save)
+    self.plotrgwrap(self.rgindex, 2*self.apair+self.rgindex , self.dvar , 'real part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 're'+ name , begin = begin , stop =stop , save = save, xlim = xlim , ylim = ylim)
+    self.plotrgwrap(self.rgindex+1, 2*self.apair+self.rgindex+1 , self.dvar ,'imaginary part rgvars (a.u.)',axnum = axnum , tit = 'Richardson-Gaudin variables', name = 'im'+ name, begin = begin , stop = stop  , save = save, xlim = xlim , ylim = ylim)
     if cplane:
-      self.plotrgwrap(self.rgindex, 2*self.apair+self.rgindex ,'real part rgvars (a.u.)' ,'imaginary part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 'cp' + name, begin= begin , stop = stop , save = save)
+      self.plotrgwrap(self.rgindex, 2*self.apair+self.rgindex ,'real part rgvars (a.u.)' ,'imaginary part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 'cp' + name, begin= begin , stop = stop , save = save, xlim = xlim , ylim = ylim)
 
-  def plotrgwrap(self, columnstart ,columnend  ,xas , yas , axnum = 0 ,tit = None , begin = 0  , stop = None, name = '' , color = 'b' , sort = '.' ,label = None , save = True):
+  def plotrgwrap(self, columnstart ,columnend  ,xas , yas , axnum = 0 ,tit = None , begin = 0  , stop = None, name = '' , color = 'b' , sort = '.' ,label = None , save = True , xlim = None , ylim = None):
     for j in xrange(len(self.datarg)):
       for i in xrange(columnstart,columnend,2):
         if 'cp' in name:
@@ -237,10 +237,10 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
         else:
           self.fig.axes[axnum].plot(self.datarg[j][begin:stop,0],self.datarg[j][begin:stop,i] , label = label)
       if self.separated == True and save:
-        self.layout(xas , yas , tit = tit)
+        self.layout(xas , yas , tit = tit, xlim = xlim , ylim = ylim)
         self.savefig(name , filenum = j)
     if self.separated == False and save:
-      self.layout(xas , yas , tit = tit)
+      self.layout(xas , yas , tit = tit, xlim = xlim , ylim = ylim)
       self.savefig(name + 'together')
     
   def plotintofmotion(self,name = 'iom',stop =None,begin = 0 , xlim = None , ylim = None , samedir = False , colormap = None, axbg = None):
@@ -535,11 +535,11 @@ def main(option, args):
     
   if option == 'wpairing':
     if args[1] == True:
-      plottergeo.readdata([args[0]])
+      plottergeo.procesfiles(args[0], 'plotenergy')
       plottergeo.generate_plot()
     else:
-      plotter.readdata([args[0]])
-      plotter.generate_plot()
+      plotter.procesfiles(args[0],'plotenergy')
+      plotter.generate_plot(xlimg = None, ylimg =None)
 
   if option == 'inset':
     plotter.readdata([args[0]])
@@ -568,8 +568,8 @@ def main(option, args):
     begin =0
     stop = None
     cp = args[1]
-    plotter.readdata([ref])
-    plotter.plotrgvars(cplane = cp , begin = begin , stop = stop , name = 'small')
+    plotter.procesfiles(args[0],'plotenergy')
+    plotter.plotrgvars(cplane = cp , begin = begin , stop = stop , name = 'small', xlim = (-0.4,0.) , ylim = (-40,50))
   
   if option is 'rgcloud':
     name = 'newstyleDang120neutronwin5_5sen2.dat'
@@ -611,9 +611,9 @@ def defineoptions():
   by adding empty sp levels and get from those files the groundstate energy at a constant g and plot them and perform lin.regression 
   '''
   #common options are: wpairing, rgvar, intmotion
-  option = 'xipath'
+  option = 'rgvar'
   #args =  -0.137 , None
-  args = '.', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False ,'.swp', 'perez'
+  args = '.','plotenergy', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False ,'.swp', 'perez'
   #make_newstyle( 'Dang120neutronwin5_5sen2.dat', comment = '#', rgindex = 3)
   main(option,args)
 

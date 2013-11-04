@@ -166,17 +166,17 @@ def writelegend(ax,cvar):
   pl.xlabel(cvar )
 
 def writetext(ax , fs= 10):
-  ax.text(-6.901,0.98,'{0:1 , 1:1 , 2:1 , 3:1 ,4:1 , 5:1}' , horizontalalignment = 'left', fontsize = fs)
-  ax.text(-6.901,0.80,'{0:1 , 1:1 , 2:1 , 3:1 ,4:2}' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = fs)
-  ax.text(-6.9011,0.60,'{0:1 , 1:1 , 2:1 , 3:3 }' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = fs)
-  ax.text(-6.9011,0.53,'{0:2 , 1:1 , 2:1 , 3:1 ,4:1}' , rotation = 5, horizontalalignment = 'left', fontsize = fs)
-  ax.text(0.91,0.65,'{0:6}' , horizontalalignment = 'right', fontsize = fs)
-  ax.text(1.05,0.42,'{0:5 , 1:1}' , horizontalalignment = 'left', fontsize = fs)
-  ax.text(-1.30,0.90,'{0:1 , 1:5}' , rotation =-60 , fontsize = fs , horizontalalignment = 'left')
-  ax.text(1.43,0.29,'{0:1 , 1:1 , 2:4}' , rotation =-20 ,horizontalalignment = 'right', fontsize = fs)
-  ax.text(0.910, 0.23,'{0:4 , 1:1 , 2:1}' , rotation = -20 ,horizontalalignment = 'right', fontsize = fs)
-  ax.text(-6.9011,0.39,'{0:3 , 1:1 , 2:1 , 3:1 }' ,horizontalalignment = 'left', fontsize = fs)
-  ax.text(1.43 ,0.172 , '{0:2 , 1:1 , 2:1 , 3: 2}' , rotation = -20 ,horizontalalignment = 'right', fontsize = fs) #, color = 'black', style = 'italic')
+  ax.text(-6.901,0.95,r'(1111110$\ldots0$)' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-6.901,0.80,r'(111120$\ldots0$)' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-6.9011,0.60,r'(11130$\ldots$0)' , verticalalignment = 'bottom' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-6.9011,0.53,r'(211110$\ldots$0)' , rotation = 5, horizontalalignment = 'left', fontsize = fs)
+  ax.text(0.91,0.65,r'(60$\ldots$0)' , horizontalalignment = 'right', fontsize = fs)
+  ax.text(1.05,0.42,r'(510$\ldots$0)' , horizontalalignment = 'left', fontsize = fs)
+  ax.text(-1.30,0.90,r'(150$\ldots$0)' , rotation =-60 , fontsize = fs , horizontalalignment = 'left')
+  ax.text(1.43,0.28,r'(1140$\ldots$0)' , rotation =-20 ,horizontalalignment = 'right', fontsize = fs)
+  ax.text(0.910, 0.20,r'(4110$\ldots$0)' , rotation = -20 ,horizontalalignment = 'right', fontsize = fs)
+  ax.text(-6.9011,0.39,r'(31110$\ldots$0)' ,horizontalalignment = 'left', fontsize = fs)
+  ax.text(1.43 ,0.132 ,r'(21120$\ldots$0)' , rotation = -18 ,horizontalalignment = 'right', fontsize = fs) #, color = 'black', style = 'italic')
   pl.xlabel( 'log|g|')
 
 

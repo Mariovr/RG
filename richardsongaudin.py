@@ -75,7 +75,7 @@ class RichardsonEq(object):
     askedvar =  getattr(self,var)
     """
     REMARK ERROR ERROR: for some reason I give only the real part back when it is a complex variable (please find out why I implemented it like this).
-    This gives problems with the circumvention of critical points so i commented it out (whatever the reason was solve it on a different way if you remember it back).
+    This gives problems with the circumvention of critical points so i commented it out (whatever the reason was solve it on a different way if you remember it again).
     """
     #if isinstance(askedvar , complex):
     #  return askedvar.real
@@ -165,7 +165,7 @@ class RichRedBcs(RichardsonEq):
   def near_tda(self,tdasolreal,tdadict):
     """
     gives the solution of the RG equations when XI is very small see the notes of S. De Baerdemacker
-    by the usage of hermite polynomials ( this is necessary because if the tda start solutions are the same , there are singularities
+    by using the hermite polynomials ( this is necessary because if the tda start solutions are the same , there are singularities
     in the RG equations. Returns the updated general Richardson-Gaudin variables
     """
     defineupdateE = False
@@ -200,7 +200,13 @@ class RichRedBcs(RichardsonEq):
 class RichDWave(RichRedBcs):
   """
   Class that solves the d-wave pairing model, Introduced in: "Integrability of an extended d+id-wave pairing Hamiltonian. by Ian Marquette, Jon Links (2012)"
+  H = sum_{i}^L \epsilon_i N_i + g sum_{i,k} eps_i eps_k (b_i^d b_k + b_i b_k^d + 2N_j N_k ) remark: eps_k > 0 forall k
   """
+  def __init(self,energiel_, ontaard_, senior_ , koppelingsconstante , apair_ , xi = 5.99203e-6 , rgsol = None):
+
+    super(RichDWave,self).__init__(energiel_,ontaard_,senior_, koppelingsconstante,apair_ ,xi = xi,rgsol = rgsol)
+
+
 
 class RichFacInt(RichardsonEq):
   """
@@ -242,7 +248,7 @@ class RichFacInt(RichardsonEq):
   def calc_coef(self, tdasol):
     """
     Used in overlaps.py to calculate the eigenstates but is ugly: ->
-    better use the xij and zij functions also to calculate the overlap
+    better use the xij and zij functions to calculate the overlap
     for reasons of simplicity and consistency
     """
     return  self.energiel/(self.eta*self.energiel*self.energiel- tdasol)    
@@ -488,7 +494,7 @@ class RichardsonSolver(object):
     self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
     xifile = open(fname ,'w')
-    xifile.write('#This file contains the energy and rgvariables of a set RG equations with variating xi\n')
+    xifile.write('#This file contains the energy and rgvariables of a set RG equations with changing xi\n')
     xifile.write('%s\n' % str(self.richeq))
     xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
     if reverse:
