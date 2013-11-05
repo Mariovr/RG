@@ -494,8 +494,7 @@ class RichardsonSolver(object):
     self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
     xifile = open(fname ,'w')
-    xifile.write('#This file contains the energy and rgvariables of a set RG equations with changing xi\n')
-    xifile.write('%s\n' % str(self.richeq))
+    rgf.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
     xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
     if reverse:
       sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
@@ -641,5 +640,3 @@ def test_copy():
 if __name__ == "__main__":
   maintest()
   #test_copy()
-  
-  

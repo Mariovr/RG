@@ -20,7 +20,7 @@ def main():
   kp =False#for runstring = 'f' if the initial interaction constant lays in the big or small regime for the interaction constant(if we run over a file of splevels)
   #startwaarde afhankelijke variabele only important when runstring = 'f' REMARK: exited states always goes from small interaction constant to the strong interaction regime
   afh = {'start':0.0 , 'end':1.99 , 'step':0.01} ; spkar = 'L' #characterizes the sp levels in the file as run = 'f' and input is a filename
-  step = {'n': -0.001,'p': 0.003}; ende = {'p' : 10. , 'n' : -1.00} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
+  step = {'n': -0.001,'p': 0.003}; ende = {'p' : 10. , 'n' : -6.00} #for runstring = e or k , the sign operator determines if the interaction constant is negative (n) or positive (p)
   rgw = True ; mov = False ; tdaf = False ; intm = True
   sign = 'n' #for runstring = k determines which instances of step and ende it receives
   npair = 8#if you use a filename as input or gives the number of pairs in the rombout system
@@ -29,9 +29,10 @@ def main():
   degeneration = degeneracies_super(nlevel) #if you use filename as input
   #set the seniority and degeneracy of the problem (in this case all to zero) REMARK: we can only do this after the definite number of sp levels is known
   #dictionary that determines the start tda solutions is only used when runstring = 'f' (when kp is True) or 'k'
-  tdadict = True#{0:6}# if True we use tdadict_kleinekoppeling (small int. limit), if False we use the tdadict when all pairs are in the lowest sp level(strong int. limit)if you want to probe a particular state just set this as a dict: {splev : np , splev : np , ...} (put always True if you want to probe excited states)
-  restart = False#Set this variable true when the current calculation is a follow up of a former calculation so it is possible to read the Richardson-Gaudin variables of the last point back in.
+tdadict = True#{0:6}# if True we use tdadict_kleinekoppeling (small int. limit), if False we use the tdadict when all pairs are in the lowest sp level(strong int. limit)if you want to probe a particular state just set this as a dict: {splev : np , splev : np , ...} (put always True if you want to probe excited states)
+  restart = True#Set this variable true when the current calculation is a follow up of a former calculation so it is possible to read the Richardson-Gaudin variables of the last point back in.
   wd2 = -50. #(wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable is not defined (wd < 0) then the number of sp levels stays constant
+  exname = 'rgprob' #extra part for the name of the directory where the data is going to end up (to distinguish in human language between runs)
   #handling of input variables
   usage = "python writepairing.py [options] arguments \n(take also a look at which function is the main function in the bottom of the writepairing.py file)"
   parser = OptionParser(usage = usage)
@@ -59,9 +60,9 @@ def main():
   assert(filename != None or inputname in ['s' , 'd' ,'r'])
   if runstring == 'e':
     assert(tdadict == True)
-  name = "run%stype%sname%sf%sp%gl%gdv%sg%s" %(runstring,typeint,inputname,filename,  npair,nlevel,depvar,interactionconstant) 
+  name = "type%sname%sp%gl%gdv%s" %(typeint,inputname,  npair,nlevel,depvar) 
   if args: 
-    name = args[0] + name
+    name = args[0] + name + exname
   #generate seperate dir for the solved problem
   if restart != True:
     generate_dir(name,filename,None) #if filename is None nothing will be copied in the directory see the implementation of generate_dir in rgfunctions
@@ -107,9 +108,7 @@ def main():
     
   elif runstring == "k":
     if restart == True:
-      rgvars = readrgvarsplote(interactionconstant, rgeq.apair,'plotenergy.dat')
-      rgeq.rgsolutions = rgvars
-      rgeq.xi =1.
+      rgeq = dr.get_restart_rgeq('plotenergy.dat', afhvar = interactionconstant)
     generating_datak(rgeq,tdadict,depvar,step[sign],ende[sign],rgwrite = rgw ,tdafilebool = tdaf,exname = name,moviede = mov, intofmotion = intm )       
     #generate some nice plots of the created data in the problem directory
     Plot_Data_File("plotenergy%s.dat" %name ).standard_plot(rgw , intm)
@@ -119,10 +118,14 @@ def main():
     because in the non-interacting limit we know some exited states vb: 1111100000 -> 1111010000 we must start the survey of the
     non-interacting states from weak interaction limit to the big limit
     '''
-    allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf , intm = intm, restart = restart)
-    #probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf , intm = intm) 
+    if restart != True:
+      allstatesgenerating_datak(rgeq,depvar,step,ende,rgw,mov,tdaf , intm = intm)
+      #probeLowestExitedStates(rgeq,depvar,step,ende,rgw,mov,tdaf , intm = intm) 
+    else:
+      restart_somestates(depvar,step,ende,rgw,mov,tdaf ,linenr = -1 ,sign = 'n', intm = True , tw = 'a', exname = '')
+      
   else:
-    print 'runstring: %s is not a valid runstring' %runstring
+    Exception('runstring: %s is not a valid runstring' %runstring)
    
 def generating_data(rgeq,nlevel,infilename,afhw,wd2,pairingdict,afhxas,kp = False,namepf = 'plotenergy.dat',checkfile =False,rgwrite = True, intofmotion = True , exname = ''):
   """
@@ -138,7 +141,7 @@ def generating_data(rgeq,nlevel,infilename,afhw,wd2,pairingdict,afhxas,kp = Fals
   discstep = 1000#discontinuity step if two succeeding solutions differ by more then this we search the ground state from the beginning
   #create the data files
   plotenergyfile = open(namepf,"w")
-  info_1set(plotenergyfile,str(rgeq), exinfo = "#at (afh = %s)\tcE\tgE\tnig\td\tnlevels\trgvar(real)\trgvar(imag)\t ...\n" %(afhxas),tdadict = pairingdict)
+  dr.info_1set(plotenergyfile,str(rgeq), exinfo = "#The variable we change is: %s\n#at (afh = %s)\tcE\tgE\tnig\td\tnlevels\trgvar(real)\trgvar(imag)\t ...\n" %(afhxas,afhxas),tdadict = pairingdict)
   ifile = open( infilename , 'r')
   #if rgvar is None we haven't determined any rg variables so the first solution of the file has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
@@ -237,9 +240,9 @@ def generating_data(rgeq,nlevel,infilename,afhw,wd2,pairingdict,afhxas,kp = Fals
   plotenergyfile.close()
   ifile.close()
 
-def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True):
+def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True,tw= "w"):
   conarray = [] # array that is used to check continuity
-  plotenergyfile = open("plotenergy%s.dat" %exname,"w") #opening of the file that's going to contain the results
+  plotenergyfile = open("plotenergy%s.dat" %exname,tw) #opening of the file that's going to contain the results if you want to append data to existing file put howwrite = "a"
   if tdafilebool is True:
     tdafile = open('tdafile.dat','w')
     dirname = "moviedir%s" %exname
@@ -252,7 +255,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     os.chdir(dir) #change to the moviedirectory   
   d = calculated(rgeq.energiel,rgeq.ontaardingen)  #Calculation of the mean distance between the used sp levels
   bb = calcnintgrondtoestand(rgeq) 
-  info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is: %s \n#d:  %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
+  if tw == 'w': dr.info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is: %s \n#d:  %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
   lastkp = False #boolean to know if the last g value circumvented a critical point
   #if rgeq.rgsolutions is None we haven't determined any rg variables so the first solution has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
@@ -380,77 +383,68 @@ def probeLowestExitedStates(rgeq,afhxas,step,ende,rgw,mov,tdaf,sign = 'n' , intm
       pairingd[nullevel+i] -= 1
     pairingd[nullevel-j-1] += 1.  
     #break #uncomment if you only want the lowest exited states
+  plot_spectrum(name = 'spectrum' , rgw = rgw , intm = intm)
+
+def restart_somestates(afhxas,step,ende,rgw,mov,tdaf , afhvar = None , linenr = None , sign = 'n', intm = True, tw = 'a' , exname = '' ):
+  enddatak = ende[sign];   stepg = step[sign]
+  filecollection = File_Collector('.', r'\bplotenergy' , notsearch = r'\.swp|\.png' , notdir = 'xvysf')
+  print filecollection.plotfiles
+  #uncomment the three lines hereunder if you want a restart of a restart (need to implement the index where the run broke down manually in this case ('923'))
+  #indexl = [filecollection.plotfiles.index(x) for x in filecollection.plotfiles if '923' in x] 
+  #print indexl
+  #filecollection.plotfiles = filecollection.plotfiles[indexl[0]+1:]
+  cwd = os.getcwd()
+  for file in filecollection.plotfiles:
+    rgeq = dr.get_restart_rgeq(file,afhvar = afhvar, linenr = linenr)
+    print 'we start generating_datak with: ', file , rgeq
+    os.chdir(os.path.split(file)[0])
+    generating_datak(rgeq.copy(),None,afhxas,stepg,enddatak ,rgwrite = rgw,exname = '',moviede = mov,tdafilebool = tdaf,tw = tw)
+    os.chdir(cwd)
+  plot_spectrum(name = 'spectrum' , rgw = rgw , intm = intm, exname = exname)
+
+def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf ,sign = 'n', intm = True):
+  '''
+  Calculates all the eigenvalues of the pairingsHamiltonian at positive or negative interaction constant.
+  If you want both write a wrapper or use the wrappermainsfile ;). 
+  '''
+  tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
+  tdacor = open('tdacor.dat','w')
+  tdacor.write('#This file contains the correspondence between the directorys and the start tda distributions \n #The first column is the directory number and on the same line is the tda start distribution written \n')
+  i = 0 #the i parameter makes it easy to restart after a failure just but i in the condition bigger as the i at failure
+  enddatak = ende[sign];   stepg = step[sign]
+  if sign == 'n':  rgeq.g = -0.0001
+  else:  rgeq.g = 0.0001
+  for tdadict in tdacombinations:
+    tdastartd = {}
+    goodsol = True
+    for j in tdadict:
+      a = tdadict.count(j)      
+      tdastartd[j] = a
+      if a*2 + rgeq.senioriteit[j]*2 > rgeq.ontaardingen[j]:
+        goodsol = False
+    if goodsol == False:
+      continue
+    if i == 0: exname = 'grond' #important for the plot of the spectrum
+    else: exname = ''
+    if i > -1: #parameter to restart easely after failure
+      generate_dir('%g' %i,None,None) #only handy for a small amount of levels
+      #tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
+      tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
+      print 'we start generating_datak with: ', tdastartd
+      generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = rgw,exname = exname,moviede = mov,tdafilebool = tdaf)
+      os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
+    i += 1
+    print i
+  tdacor.close()
+  plot_spectrum(name = 'spectrum' , rgw = rgw , intm = intm)
+    
+def plot_spectrum(xlim = None , ylim = None, name = 'spectrum', rgw = True, intm = False , exname = ''):
   plotter = Plot_Data_File()
-  plotter.procesfiles(os.getcwd() ,'plotenergy', notsearch = 'rgvar' , sortfunction = lambda x : -1. if 'grond' in x else 0) #sortfunction makes sure the groundstate is first this is important for the normalization
+  plotter.procesfiles(os.getcwd(),'plotenergy' + exname, notsearch = '.png' , sortfunction = lambda x : -1. if '/0/' in x else 0.) #sortfunction makes sure the groundstate is first this is important for the normalization
   plotter.standard_plot(rgw , intm)
   plotter.normalize_to_groundstate()
   plotter.separated = False
-  plotter.generate_plot()
-
-def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf ,intm = True , restart = False):
-  '''
-  calculates all the eigenvalues of the pairingsHamiltonian
-  '''
-  if restart == True:
-    enddatak = ende['n'];   stepg = step['n']
-    filecollection = File_Collector('.', r'\bplotenergy.dat\b' , notsearch = 'next' , notdir = 'xvysf')
-    print filecollection.plotfiles
-    indexl = [filecollection.plotfiles.index(x) for x in filecollection.plotfiles if '923' in x] 
-    print indexl
-    filecollection.plotfiles = filecollection.plotfiles[indexl[0]+1:]
-    print filecollection.plotfiles
-    cwd = os.getcwd()
-    rgeq.xi =1.
-    for file in filecollection.plotfiles:
-      print 'we start generating_datak with: ', file , rgeq
-      rgvars = readrgvarsplote(rgeq.g, rgeq.apair , file)
-      rgeq.rgsolutions = rgvars
-      os.chdir(os.path.split(file)[0])
-      generating_datak(rgeq.copy(),None,afhxas,stepg,enddatak ,rgwrite = rgw,exname = 'next',moviede = mov,tdafilebool = tdaf)
-      Plot_Data_File("plotenergynext.dat").standard_plot(rgw , intm)
-      os.chdir(cwd)
-  else:
-    tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
-    tdacor = open('tdacor.dat','w')
-    tdacor.write('#This file contains the correspondence between the directorys and the start tda distributions \n #The first column is the directory number and on the same line is the tda start distribution written \n')
-    i = 0 #the i parameter makes it easy to restart after a failure just but i in the condition bigger as the i at failure
-    for a in [0,1]:
-      if a == 0:
-        enddatak = ende['n'];   stepg = step['n']
-        rgeq.g = -0.0001
-      else:
-        enddatak = ende['p'] ; stepg = step['p']
-        rgeq.g = 0.0001
-      for tdadict in tdacombinations:
-        tdastartd = {}
-        goodsol = True
-        for j in tdadict:
-          a = tdadict.count(j)      
-          tdastartd[j] = a
-          if a*2 + rgeq.senioriteit[j]*2 > rgeq.ontaardingen[j]:
-            goodsol = False
-        if goodsol == False:
-          continue
-        if i == 0: exname = 'grond' #important for the plot of the spectrum
-        else: exname = ''
-        if i > -1: #parameter to restart easely after failure
-          generate_dir('%g' %i,None,None) #only handy for a small amount of levels
-          #tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
-          tdacor.write('%g\ttdadict= %s\n' %(i,' '.join(map(str,tdadict))))
-          print 'we start generating_datak with: ', tdastartd
-          generating_datak(rgeq,tdastartd,afhxas,stepg,enddatak ,rgwrite = rgw,exname = exname,moviede = mov,tdafilebool = tdaf)
-          Plot_Data_File("plotenergy.dat").standard_plot(rgw , intm)
-          os.chdir(os.path.abspath(os.path.join(os.getcwd(), os.path.pardir)))
-        i += 1
-        print i
-      tdacor.close()
-      
-    plotter = Plot_Data_File()
-    plotter.procesfiles('.','plotenergy', notsearch = '.swp' , sortfunction = lambda x : -1. if 'grond' in x else 0.) #sortfunction makes sure the groundstate is first this is important for the normalization
-    plotter.normalize_to_groundstate()
-    plotter.separated = False
-    #plotter.generate_plot(xlimg = (-0.21,0) , ylimg = (0,50), name = 'zoom')
-    plotter.generate_plot(xlimg = None , ylimg = None, name = 'big')
+  plotter.generate_plot(xlimg = xlim , ylimg = ylim, name = name)
   
 def romboutsprob():
   #definition of problem of artikel stefan:2010 (endg is typically -0.075 , and apair = 10)
@@ -560,7 +554,6 @@ def dangmain():
   print energielev,degeneration,senioriteit,npair,nlevel,fermil
   #pairingd = {4:5}
   #[-10.4576,-8.4804,-7.6512,-7.7025] #ijzer
-  #rgvard = readrgvars(-0.310001,'rgvarDang.dat')
   generate_dir('dangsentest','Sn120Neutrons',None)  #generate seperate dir for the solved problem
   step = -0.001
   ende = -10
@@ -587,29 +580,20 @@ def dangmain():
     seniority_enhancer_allstates(rgeq,'DangSn120neutronwindow(5,5)',vsen,exewaarde = extrae,begin = -0.001 ,step = -0.0001)    
 
 def stijnijzer():
-  deg = [6,4,2,8,4,6,2,2,6,10]
-  sen = [0,0,0,0,0,0,0,0,0,0]
-  elevel = [-21.5607 , -19.6359 , -19.1840 , -10.4576, -8.4804 , -7.7003 , -7.65120 , -0.3861 , 0.2225 , 0.5631]
-  ap = 11
-  al = 10
-  g = -2.
-  g = -0.9233
-  tdadict = {0:ap}
-  rgvars = readrgvarsplote(-0.9233 ,ap ,  'plotenergy1.dat')
-  rgeq = rg.RichRedBcs(elevel, deg , sen , g , ap , rgsol = rgvars , xi = 1.)
-  print rgeq.solve()
+  rgeq = dr.get_restart_rgeq('plotenergy1.dat', afhvar = -0.9233, linenr = None, startrg = 3)
+  print rgeq
   exname = 'nauwkeurigomgekeerd'
-  generating_datak(rgeq, tdadict , 'g' ,-0.000001 , -9.23435 , tdafilebool = True , exname = exname)
+  generating_datak(rgeq,None, 'g' ,-0.000001 , -9.23435 , tdafilebool = True , exname = exname)
   Plot_Data_File("plotenergy%s.dat" %exname).standard_plot(True , True)
 
 def stijnd():
-  readdata = dr.Reader('pairing-parameters.inp', comment = '*')
+  readdata = dr.ReaderInp('pairing-parameters.inp', comment = '*')
   rgeq = readdata.make_rgeq()
   tdadict = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
   rgeq.g = -0.0001
   #tdadict = {0:rgeq.apair}
   exname = 'stijnconf3'
-  #rgvars = readrgvarsplote(-0.319600 , rgeq.apair,'plotenergystijnconf2.dat')
+  #rgeq = dr.get_restart_rgeq('plotenergystijnconf2.dat', afhvar = -0.319600, linenr = None)
   generating_datak(rgeq, tdadict , 'g' ,-0.0005 , -0.050100	, tdafilebool = False, exname = exname)
   Plot_Data_File("plotenergy%s.dat" %exname).standard_plot(True , True)
 
@@ -624,13 +608,15 @@ def test_critical():
     generating_datak(rgeq,tdadict,'g',-0.001, -1.1,exname = '%g' %(i+1))
     os.chdir('..')
 
+def test_append_restart():
+  pass
 
 if __name__ == "__main__":
-  main()
+  #main()
   #dangmain()
   #testcircumvent()
   #addlevel() #function in rgfunctions
   #facintmain()
   #allstatesoneg()
-  #stijnd()
+  stijnijzer()
   #test_critical()
