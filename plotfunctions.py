@@ -139,28 +139,28 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
     self.reader = dr.ReaderOutput(reflist[0]) #Some plotting functions need a bit more information this info is extracted from the header of the files
     self.reader.depvar['depvar'] += ' (a.u.)'
 
-  def procesfiles(self, dirname , search , notsearch = '.png' , notdir = 'awfwfr', sortfunction = None , rev = False , regexp = None , substr = None , filelist = None ):
+  def procesfiles(self, dirname , search , notsearch = r'\.swp|\.png', notdir = 'awfwfr', sortfunction = None , rev = False , regexp = None , substr = None , filelist = None ):
     filecol =File_Collector(dirname , search , notsearch = notsearch ,filelist = filelist , sortfunction = sortfunction , rev =rev )
     self.readdata(filecol.plotfiles, regexp = regexp ,  substr = substr)
 
-  def generate_plot(self, xlimg = None , ylimg =None):
+  def generate_plot(self, xlimg = None , ylimg =None , exname = '' , prefix = True):
     """
     some nice plots to visualize the data with matplotlib, plotg = true if you plot the energylevels of the sp levels of a geometry file
     """
     print ('start with the generation of plots')
     #plot of condensation energy
-    self.plotwrap(0,1, 'condensation energy (a.u.)' , name = 'ce',titel = 'the condensation energy (a.u.)',xlim = xlimg , ylim = ylimg )
-    self.plotwrap(0,2, 'energy (a.u.)' , name = 'ge', titel = 'the energy (a.u.)', xlim = xlimg , ylim = ylimg )
+    self.plotwrap(0,1, 'condensation energy (a.u.)' , name = 'ce' + exname ,titel = 'the condensation energy (a.u.)',xlim = xlimg , ylim = ylimg  , prefix = prefix)
+    self.plotwrap(0,2, 'energy (a.u.)' , name = 'ge'+ exname, titel = 'the energy (a.u.)', xlim = xlimg , ylim = ylimg , prefix = prefix )
 
-  def plotwrap(self, xindex, yindex, yas, name = None, titel = None ,color = 'r' , sort = '' , label = None , xlim = None , ylim = None ):
+  def plotwrap(self, xindex, yindex, yas, name = None, titel = None ,color = 'r' , sort = '' , label = None , xlim = None , ylim = None , prefix = False):
     for i in range(len(self.datarg)):
       self.fig.axes[0].plot(self.datarg[i][:,xindex],self.datarg[i][:,yindex], color+sort , label = label)
       if self.separated == True:
         self.layout(self.reader.depvar['depvar'] , yas , tit = titel, xlim = xlim , ylim = ylim)
-        self.savefig(name, filenum = i)
+        self.savefig(name, filenum = i , prefix = prefix)
     if self.separated == False:
       self.layout(self.reader.depvar['depvar'] , yas , tit = titel, xlim = xlim , ylim = ylim)
-      self.savefig(name + 'together')
+      self.savefig(name + 'together' , prefix = prefix)
 
   def plotrgvarscplane(self, interval = (-20 , 0), label = None):
     for k in xrange(len(self.datarg) ):
@@ -301,8 +301,7 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
 
   def savefig(self , name , filenum = 0 , samedir = False , prefix = True):
     """
-    After we are satisfied with our figure we save it with this function: dpi = pixels per inch, we delete all . in the prefix because it will give faults when we use
-    the savefig function of fig
+    After we are satisfied with our figure we save it with this function: dpi = pixels per inch, under a name determined by the savestring function().
     """
     #REMARK watch out with the translation of the dot to nothing when you gave as arguments the current working directory '.' because
     #if you do this it is not possible to save the file in the appropriate place because the folder doesn't exist anymore 
@@ -322,7 +321,7 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
         Making use of some implementation detail of savefig, if we read in files from all different directory's, the prefixes contain the path of those files relative to the rootdirectory. So if you save the file we save it with first the prefix and then the name , so the figures end up in the same directory as the files. If you don't want this behaviour we need to remove the / in the prefixs so fig.savefig will not recognize it as a path so all the figures end up in the current working directory. Remark we only remove the / because if all the figures end up in same dir we need the path information to distinguish them.
         """
         self.prefix = [pre.translate(None , '/')  for pre  in self.prefix]
-      return '%s%s%d.png' %(self.prefix[filenum].translate(None,'.}{\\[];:'), name, filenum )
+      return '%s%s%d.png' %(self.prefix[filenum], name, filenum )
     else:
       return '%s%d.png' %(name, filenum )
 
@@ -353,7 +352,7 @@ class Plot_Geo_File(Plot_RG_Files):
   """
   remark before the Richardson-Gaudin variables start this file has 6 columns, extra: nig , meandistance , number of levels
   """
-  def __init__(self , name = 'x', dvar = None , searchstr = 'plotenergy'):
+  def __init__(self , name = 'x', searchstr = 'plotenergy'):
     self.rgindex = 6
     if os.path.isdir(name):
       self.procesfiles(name , searchstr)
@@ -362,7 +361,7 @@ class Plot_Geo_File(Plot_RG_Files):
     super(Plot_Geo_File,self).__init__()
 
   def generate_plot(self):
-    super(Plot_Geo_File,self).generate_plot(dvar)
+    super(Plot_Geo_File,self).generate_plot()
     print('plot non-interacting groundstate')
     self.plotwrap(0,3, 'energy of the non-interacting groundstate (a.u.)','nig', titel = 'aantal paren = %f' %(self.reader.npair))
     try:
@@ -371,7 +370,7 @@ class Plot_Geo_File(Plot_RG_Files):
       print 'the plot of d failed'
 
 class Plot_Data_File(Plot_RG_Files ):
-  def __init__(self, name = 'x', searchstr = 'plotenergy' , notsearch = '.png' , regexp = None, sortfunction = None):
+  def __init__(self, name = 'x', searchstr = 'plotenergy' , notsearch =r'\.swp|\.png' , regexp = None, sortfunction = None):
     self.rgindex = 3
     if os.path.isdir(name):
       self.procesfiles(name , searchstr, notsearch = notsearch , regexp = regexp , sortfunction = sortfunction)
@@ -399,15 +398,21 @@ class Plot_Data_File(Plot_RG_Files ):
       self.savefig('allstates%f' % (self.datarg[0][begin,0]) , samedir = True)
       begin += step
     makemovie(name = 'allstatesrgcloud')    
-
+  
+  def plot_spectrum(self,xlim = None , ylim = None, search = 'plotenergy', rgw = True, intm = True, name = 'spectrum'):
+    self.procesfiles(os.getcwd(), search, notsearch = r'\.swp|\.png', sortfunction = lambda x : -1. if '/0/' in x or 'ground' in x else 0.) #sortfunction makes sure the groundstate is first this is important for the normalization
+    self.standard_plot(rgw , intm)
+    self.normalize_to_groundstate()
+    self.separated = False
+    self.generate_plot(xlimg = xlim , ylimg = ylim, prefix = False , exname = name)
+  
 class Plot_Xi_File(Plot_RG_Files):
   def __init__(self, name , search , regexp =r'constant:\s*([\-0-9.]+)'):
     self.rgindex = 2
     if os.path.isdir(name):
-      self.procesfiles(name ,search, notsearch = None, regexp = regexp)
+      self.procesfiles(name ,search, notsearch =r'\.swp|\.png', regexp = regexp)
     elif os.path.isfile(name):
       self.readdata([name], regexp = regexp)
-    self.reader.depvar['depvar'] = 'xi'
     super(Plot_Xi_File,self).__init__()
 
   def plot_spectrumxichange(self):
@@ -477,12 +482,8 @@ def main(option, args):
   plotter = Plot_Data_File()
   plottergeo = Plot_Geo_File()
   if option == 'pexcited':
-    plotter = Plot_Data_File(os.getcwd(), 'plotenergy', notsearch = 'rgvar' , sortfunction = lambda x : -1. if 'grond' in x else 0.) #sortfunction makes sure the groundstate is first this is important for the normalization
-    plotter.standard_plot(True, True)
-    plotter.normalize_to_groundstate()
-    plotter.separated = False
-    plotter.generate_plot()
-    
+    plotter = Plot_Data_File().plot_spectrum(xlim = None , ylim = None, search = 'plotenergy', rgw = True, intm = True, name = 'spectrum')
+
   if option == 'wpairing':
     if args[1] == True:
       plottergeo.procesfiles(args[0], 'plotenergy')
@@ -563,7 +564,7 @@ def defineoptions():
   by adding empty sp levels and get from those files the groundstate energy at a constant g and plot them and perform lin.regression 
   '''
   #common options are: wpairing, rgvar, intmotion
-  option = 'rgvar'
+  option = 'pexcited'
   #args =  -0.137 , None
   args = '.', True,'.',r'constant:\s*([\-0-9.]+)', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False 
   main(option,args)

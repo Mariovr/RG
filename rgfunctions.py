@@ -50,7 +50,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     #little block to become a better guess for the rgvars
     energierg = rgeq.solve()
     rgeq.g += 1.j*phis
-    print ('distance measure rgeq.g = : %s' % str(rgeq.g))
+    #print ('distance measure rgeq.g = : %s' % str(rgeq.g))
   print ('we made g complex now we are going to increase the norm of g: %s' %str(rgeq.g))
   argxi = {'xiend': xival}
   if backxi is True:
@@ -77,7 +77,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     energierg = rgeq.solve() 
     if end is not None and rgeq.g.real == end:
       break
-    print 'The variable we change in littleLoop : %s is: %s ' %(dvar ,str(rgeq.getvar(dvar)))
+    #print 'The variable we change in littleLoop : %s is: %s ' %(dvar ,str(rgeq.getvar(dvar)))
   print ('Now are we going to make g back real %s' %str(rgeq.g))
   phis /= 2.
   rgeq2 = copy.deepcopy(rgeq)
@@ -90,7 +90,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
     if rgeq.g.imag <= 0.:
       rgeq.g = rgeq.g.real
     energierg = rgeq.solve()
-    print ('distance measure rgeq.g = : %s' % str(rgeq.g))
+    #print ('distance measure rgeq.g = : %s' % str(rgeq.g))
   print ('circumventing the critcal point on %f succeeded !!!!!!!!!!!!!!!!!' % rgeq.g.real)
   return energierg,rgeq,rgeq2
   
@@ -302,19 +302,17 @@ def wd_processing(wd2,nlev,npair,waarden):
 
 def checkdegeneratie(waarden,deg,nauw = 0.00000000001):
   """
-  It determines the degeneracies of an sp spectrum en puts two levels as one if they are degenerate or quasi degenerate (closer then magv together)
+  It determines the degeneracies of an sp spectrum en puts two levels as one if they are degenerate or quasi degenerate (closer then nauw together)
   And then it increases the degeneracie of the level
   the function asks a list of sp levels , and the number of sp levels
   it returns the adjusted number of splevels and an array that contains the degeneracy of the sp levels (the sp level list is adjusted by reference)
   """
-  magv= nauw
-  i = 0 
-  nlev = len(waarden)
+  i = 0 ;  nlev = len(waarden)
   while( i < nlev):
     a = 0 # number of pairs a sp level can contain
     c = i
     degsom = 0
-    while (waarden[c]-magv <= waarden[i]):
+    while (waarden[c]- nauw <= waarden[i]):
       a = a + 1
       degsom += deg[c]
       c += 1
@@ -328,6 +326,7 @@ def checkdegeneratie(waarden,deg,nauw = 0.00000000001):
     assert(nlev == len(waarden))
     #print i,nlev,degsom
     i = i +1 
+  assert(nlev == len(deg))
   return nlev, deg
 
 def tdadict_kleinekoppeling(npair,degen,sen):
@@ -456,7 +455,7 @@ def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,
   3) all the calculated information is written to the file where the filehandler(fd) communicates with
   4) This function is preferable over allstatesstrongg if the interaction constant where we want to know all the states from is close to the 
   small interacting limit.
-  5) wind : construction used for debugging and overcoming unovercomable critical points
+  j) wind : construction used for debugging and overcoming unovercomable critical points
   ############
   Output: None
   '''
@@ -523,6 +522,35 @@ def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataan
       pass
   return 0  
   
+def create_predefined_rgeq(interactionconstant,eta,npair,nlevel , hamiltonian ,inputname):
+  #gathering of the input we need to generate a RichEq object which we shall solve
+  if inputname == 'r':
+    energy , degeneration, seniority = romboutsprob() #typical interacion constant between -0.075 and -0.0001 for groundstate typical n of pairs is 10 (quarterfilling)
+  elif inputname == 's':
+    energy , degeneration , seniority = picketfence( nlevel)
+  elif inputname == 'd':
+    energy , degeneration , seniority , npair = dang(filename = 'Sn120Neutrons' , cutoff = 1e5) #typ int. c. = -0.137
+  else:
+    energy = [0]*npair; degeneration = [2]*npair; seniority = [0]*npair #is used when runstring = 'f' those are overwritten in generating_data but we need a rgeq object so we create it with some dummy variables
+  #Creation of the RichEq object
+  if  hamiltonian == 'r':
+    rgeq = rg.RichRedBcs(energy, degeneration, seniority , interactionconstant , npair)
+  elif hamiltonian == 'f':
+    rgeq = rg.RichFacInt(energy , degeneration, seniority , interactionconstant ,eta ,npair)
+  else:
+    print 'unknown Hamiltonian at the moment only the factorisable interaction (f) and reduced BCS Hamiltonian (r) are implemented'
+    sys.exit(1)
+  return rgeq
+
+def input_checks(rgeq):
+  assert(len(rgeq.ontaardingen) == len(rgeq.senioriteit)) 
+  assert(len(rgeq.energiel) == len(rgeq.ontaardingen))
+  assert(len(rgeq.energiel) > 1 )   
+  assert(rgeq.apair <= sum(rgeq.ontaardingen)/2.)
+  assert(rgeq.apair > 0)
+  if rgeq.rgsolutions != None:
+    rgeq.solve()
+  print rgeq
   
 def binoml(n,r):
   '''
@@ -628,6 +656,7 @@ def continuity_check(arraysol, rgeq,crit = 1.6,dvar = 'g'):
   REMARK: Very important function for (generating_datak) to check if there is no jump to an excited state.
   '''
   grootte = 6
+  assert(len(arraysol) <= grootte), 'somewhere the continuity array got populated to much'
   meand = 0 ; adapter = 0 # adapter adapts for bigger steps (important around critical points)
   con = True
   if len(arraysol) < grootte:
@@ -646,6 +675,9 @@ def continuity_check(arraysol, rgeq,crit = 1.6,dvar = 'g'):
       con = False
   return con  
   
+def str2tdadict(integerstring):
+  return dict(zip( range(len(integerstring)), map(int, list(integerstring))  ))
+
 def remove(name,regexp = False, reva =r'(/d+/./d+)' ):
   '''
   this functions removes all the files that contains a number.number syntax in the current working directory

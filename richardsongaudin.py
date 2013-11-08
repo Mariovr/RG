@@ -43,14 +43,14 @@ class RichardsonEq(object):
   def __str__(self):
     stringrep = '''#Stringrepresentation of RichardsonEq with subclass: %s
 #energylevels: %s
-#degeneracys: %s
-#senioritys: %s
+#degeneracies: %s
+#seniorities: %s
 #the solutions of the set of equations %s
 #the interaction constant: %s
-#the number of pairs: %s, the xivalue: %s
+#the number of pairs: %s
+#the xivalue: %s
 #the total energy is: %s
 ''' %(self.__class__.__name__ , str(self.energiel).translate(None,'\n'),str(self.ontaardingen).translate(None,'\n'),str(self.senioriteit).translate(None,'\n'),str(self.rgsolutions).translate(None,'\n'),str(self.g),str(self.apair),str(self.xi),str(self.energy))
-
     return stringrep
   
   #def __del__(self):
@@ -636,6 +636,9 @@ def test_copy():
   print rgeq.energiel , d.energiel
   d.g = -10.
   print rgeq.g , d.g
+
+def test():
+  print RichRedBcs([0],[0],[0], -0.2 , 4)
 
 if __name__ == "__main__":
   maintest()

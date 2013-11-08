@@ -7,7 +7,7 @@ import richardsongaudin as rg
 
 def get_restart_rgeq(filename, afhvar = None, linenr = None , startrg = 3 , types = None , depvar = 'xi'):
   #remark last two options of this function are not necessary, but they handle old outputfiles that didn't contain type and independend variable information in the header
-  outputreader = ReaderOutput(filename, comment = '#')
+  outputreader = ReaderOutput(filename, inputline = '#')
   outputreader.readrgvars(afhvar = afhvar, linenr = linenr , startrg = startrg) #if ahvar is not None we read rgvars when depvar[1] == afhvar otherwise we read rgvars at linenumber = linenr, remark xifile has startrg = 2, plotgeofile has startrg = 6 , plotenergyfile has startrg = 3 
   return outputreader.make_rgeq(types = types , depvar = depvar)
   
@@ -60,8 +60,9 @@ class Reader(object):
   """
   Abstract data class that reads in data from files
   """
-  def __init__(self, filename , comment = '#'):
+  def __init__(self, filename , inputline = '#', comment = '%' ):
     self.filename = filename
+    self.inputline = inputline
     self.comment = comment
     self.nlevel , self.npair , self.g , self.rgvars, self.eta = None , None , None, None, None
     self.elevels, self.degeneracies , self.seniorities = [],  [] , []
@@ -109,7 +110,7 @@ class ReaderOutput(Reader):
     """
     with open(self.filename, 'r') as file:
       for line in file:
-        if line.startswith(self.comment):
+        if line.startswith(self.inputline) and not line.startswith(self.comment):
           if 'RichardsonEq' in line:
             try: self.kind = re.search(r':\s*(\w+)',line).group(1)
             except: print 'a kind was not found probably old outputformat you can fix it by submitting an extra parameter -> make_rgeq(types = RichRedBcs)'
@@ -132,8 +133,10 @@ class ReaderOutput(Reader):
               self.eta = float(match.group(1))
           elif 'tda' in line:
             self.tdadist = matchdict(line) 
+        elif line.startswith(self.comment):
+          continue
         else:
-          break #header is finished
+          break #header is finished handy for long outputfiles
     self.nlevel = len(self.elevels)
     print 'we have read the information from the header of ', self.filename
 
@@ -145,11 +148,18 @@ class ReaderOutput(Reader):
     If the file is from the old output format of generating_datak (re re re ... Im im im im ...) use the file converter -> make_newstyle and then use this function to read the rgvariables
     """
     with open(self.filename,'r') as ref: #neat trick in python closes the file automatically when you leave the with block
+      data = ref.readlines()
       if linenr != None:
-        self.rgvars, self.depvar['depval'] = self.get_rgvars(ref.readlines()[linenr].split(), startrg)
+        while self.depvar['depval'] == None:
+          try:
+            self.rgvars, self.depvar['depval'] = self.get_rgvars(data[linenr].split(), startrg)
+          except ValueError:
+            if linenr < 0 : linenr -= 1
+            elif linenr > 0 : linenr += 1
+            print ("Error the linenumber you gave corresponds to a inputline so we cant read in the rgvariables therefore we chanced linenumber to : %g" %(linenr))
       else:
-        for line in ref: #make sure afhvar is not None if linenr is None
-          if line[0]== '#':
+        for line in data: #make sure afhvar is not None if linenr is None
+          if line[0]== self.comment or line[0] == self.inputline:
             continue
           data = line.split()
           try:
@@ -174,7 +184,7 @@ class ReaderInp(Reader):
   """
   class to read in data files from stijns program
   """
-  def __init__(self, filename , comment = '#' , transf = "dD" , transa = "ee"):
+  def __init__(self, filename , comment = '*' , transf = "dD" , transa = "ee"):
     self.trans = maketrans(transf,transa)
     super(ReaderInp,self).__init__(filename,comment)
 
@@ -201,12 +211,12 @@ class ReaderInp(Reader):
     return maketrans(first, after)
 
 def main():
-  d = ReaderInp('pairing-parameters.inp', comment = '*')
-  print  d.make_rgeq(types = 'RichRedBcs')
-  d = ReaderOutput('xipath-0.039095.dat')
+  #d = ReaderInp('pairing-parameters.inp', comment = '*')
+  #print  d.make_rgeq(types = 'RichRedBcs')
+  d = ReaderOutput('plotenergy.dat')
   print d.make_rgeq(types = 'RichRedBcs') #is not the type of the solutions but no problem because we haven't read in the solutions (we need to give it manually)
-  d.readrgvars(linenr = -6, startrg = 2) #reading of solutions: remark xifile has startrg = 2, plotgeofile has startrg = 6 , plotenergyfile has startrg = 3 
-  rgeq = d.make_rgeq(types = 'RichFacInt', depvar = 'xi')
+  d.readrgvars(linenr = -2, startrg = 3) #reading of solutions: remark xifile has startrg = 2, plotgeofile has startrg = 6 , plotenergyfile has startrg = 3 
+  rgeq = d.make_rgeq(types = 'RichFacInt', depvar = 'g')
   print str(rgeq)
 
 if __name__ == "__main__":
