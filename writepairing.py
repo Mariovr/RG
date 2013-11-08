@@ -47,7 +47,7 @@ def main():
       
   #create RichardsonEq object
   if filename == None or runstring == 'f':
-    rgeq = create_predefined_rgeq(filename,interactionconstant,npair,nlevel ,hamiltonian, inputname)
+    rgeq = create_predefined_rgeq(interactionconstant,eta,npair,nlevel ,hamiltonian, inputname)
   else:
     rgeq = dr.ReaderOutput(filename, inputline= '', comment = '%').make_rgeq()
 

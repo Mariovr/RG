@@ -525,11 +525,11 @@ def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataan
 def create_predefined_rgeq(interactionconstant,eta,npair,nlevel , hamiltonian ,inputname):
   #gathering of the input we need to generate a RichEq object which we shall solve
   if inputname == 'r':
-    energy , degeneration, seniority = romboutsprob() #typical interacion constant between -0.075 and -0.0001 for groundstate typical n of pairs is 10 (quarterfilling)
+    energy , degeneration, seniority = wp.romboutsprob() #typical interacion constant between -0.075 and -0.0001 for groundstate typical n of pairs is 10 (quarterfilling)
   elif inputname == 's':
-    energy , degeneration , seniority = picketfence( nlevel)
+    energy , degeneration , seniority = wp.picketfence( nlevel)
   elif inputname == 'd':
-    energy , degeneration , seniority , npair = dang(filename = 'Sn120Neutrons' , cutoff = 1e5) #typ int. c. = -0.137
+    energy , degeneration , seniority , npair = wp.dang(filename = 'Sn120Neutrons' , cutoff = 1e5) #typ int. c. = -0.137
   else:
     energy = [0]*npair; degeneration = [2]*npair; seniority = [0]*npair #is used when runstring = 'f' those are overwritten in generating_data but we need a rgeq object so we create it with some dummy variables
   #Creation of the RichEq object
