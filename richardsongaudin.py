@@ -323,6 +323,82 @@ class RichFacInt(RichardsonEq):
     d.energy = self.energy
     return d
     
+#Dicke model
+class Dicke(RichardsonEq):
+  """
+  Class that defines the Richardson-Gaudin equations produced as bethe ansatz equations
+  for the Dicke Hamiltonian. (with the pseudo deformation parameter XI that defines the algebra)  
+  """ 
+
+  def __init__(self,energiel_,ontaard_,koppelingsconstante,epsilon0_,apair_ , xi = 5.992003000000000027e-6,rgsol = None):
+    self.epsilon0 = epsilon0_ 
+    senior = np.zeros(len(energiel_))
+    super(Dicke,self).__init__(energiel_,ontaard_,senior, koppelingsconstante,apair_ ,xi = xi,rgsol = rgsol)
+
+  def __call__(self,x):
+    rgfunc = zeros(self.apair,complex)
+    for i in xrange(self.apair):
+      rgfunc[i] = (self.epsilon0 - x[i])+self.g**2 * sum((self.ontaardingen*(-0.5*self.xi-0.5)+self.xi)/(self.energiel-x[i]))
+      for k in xrange(self.apair):
+        if k != i:
+          rgfunc[i] += 2.*self.g**2 *self.xi* 1./(x[k]-x[i])
+    return rgfunc
+    
+  def jacobian(self,x):
+    jac = zeros((self.apair,self.apair),complex)
+    for i in xrange(self.apair):
+      for j in xrange(self.apair):
+        if i == j: 
+          jac[i,i] = -1.+self.g**2 * sum((self.ontaardingen*(-0.5*self.xi-0.5)+self.xi)/(self.energiel-x[i])**2)
+          for k in xrange(self.apair):
+            if k != i:
+              jac[i,i] += 2.*self.g**2 *self.xi* 1./(x[k]-x[i])**2
+        else:  jac[i,j] = -2.*self.g**2 *self.xi/(x[j]-x[i])**2
+    return jac  
+    
+  def get_energy(self):
+    return sum(self.rgsolutions.real) - sum(0.5*(self.ontaardingen-1.) * self.energiel)
+  
+  
+  def iomtrans(self):
+    return 2. * self.energiel , 2.* self.g
+
+  def near_tda(self,tdasolreal,tdadict):
+    """
+    gives the solution of the RG equations when XI is very small see the notes of S. De Baerdemacker
+    by the usage of hermite polynomials ( this is necessary because if the tda start solutions are the same , there are singularities
+    in the RG equations. Returns the updated general Richardson-Gaudin variables
+    """
+    defineupdateE = False
+    for key in tdadict.keys():
+      if tdadict[key] != 0.:
+        tdasol = ones(tdadict[key],int)*tdasolreal[key]
+        ai = 1./self.g**2 + 1./2.*sum(self.ontaardingen/(self.energiel-tdasol[0])**2.)
+        n = len(tdasol)
+        coeff = zeros(n+1,float)
+        coeff[n] = 1
+        rootshermite = polynomial.hermite.hermroots(coeff)
+        if defineupdateE == False:
+          updateE = tdasol + 1j*sqrt(2.*self.xi/ai)*rootshermite
+          defineupdateE = True
+        else:
+          updateE = append(updateE,tdasol+ 1j*sqrt(2.*self.xi/ai)*rootshermite)        
+    print """the near_tda approximate solutions:
+      *******************************************"""
+    print updateE
+    return updateE
+    
+  def copy(self):
+    #self made copy function because copy.deepcopy() is to damn slow
+    if self.rgsolutions == None:
+      rgcop = None
+    else:
+      rgcop = np.copy(self.rgsolutions)
+    d = Dicke(self.energiel,self.ontaardingen,self.g,self.epsilon0,self.apair,xi = self.xi,rgsol = rgcop)
+    d.energy = self.energy
+    return d
+
+
 class RichardsonSolver(object):
   def __init__(self,richeq):
     '''
@@ -335,6 +411,9 @@ class RichardsonSolver(object):
       self.tda = TdaFacInt(self.richeq.energiel,self.richeq.ontaardingen,self.richeq.g,self.richeq.eta)
     elif isinstance(richeq,RichRedBcs):
       self.tda = TdaRedBcs(self.richeq.energiel,self.richeq.ontaardingen,self.richeq.g)
+   #Added Dicke model
+    elif isinstance(richeq,Dicke):
+      self.tda = TdaDicke(self.richeq.energiel,self.richeq.ontaardingen,self.richeq.g,self.richeq.epsilon0)
     self.xisolutions = []# use as [xi: (E, Rgvar), ...]
     if self.richeq.rgsolutions != None:
       self.set_xisolution(self.richeq.get_energy())
@@ -494,7 +573,7 @@ class RichardsonSolver(object):
     self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
     xifile = open(fname ,'w')
-    rgf.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
+    #rgf.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
     xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
     if reverse:
       sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
@@ -608,6 +687,7 @@ def maintest():
   apair = 10
   g = -0.075
   '''
+  '''
   eta = 1.
   g = -0.0100
   #tdastartd = {0:0,1:2,2:0,3:0,4:1,5:0}
@@ -622,6 +702,17 @@ def maintest():
   print rgeq.intofmotion()
   tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
   print tdad 
+  '''
+  #Dicke test
+  g = -0.5
+  apair = 5
+  tdastartd = {0:1,1:1,2:1,3:1,4:1}
+  epsilon0 = 0.5
+  dickeeq = Dicke(eendlev,ontaardingen,g,epsilon0,apair)
+  a = RichardsonSolver(dickeeq)
+  rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
+  a.writexipath()
+  a.plotrgvarsxi()
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)
