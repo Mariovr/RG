@@ -1,11 +1,24 @@
+# permitted by applicable law. You may use it, redistribute it and/or modify
+# it, in whole or in part, provided that you do so at your own risk and do not
+# hold the developers or copyright holders liable for any claim, damages, or
+# other liabilities arising in connection with the software.
+# 
+# Developed by Mario Van Raemdonck, 2013;
+# (c) Ghent University, 2013
 #!/usr/bin/env python
 import numpy as np
 import pylab as pl
 import os,sys,shutil
 import re
 import matplotlib
+import math
 
 import datareader as dr
+
+#matplotlib.rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']}) #adjust fonts
+## for Palatino and other serif fonts use:
+#rc('font',**{'family':'serif','serif':['Palatino']})
+#matplotlib.rc('text', usetex=True)
 
 def makemovie(name = None):
   # makes a movie from all the .png files in the current directory
@@ -86,7 +99,7 @@ class Plot_RG_Files(object):
   def add_axes(self,pos = [0.5 , 0.2 , 0.4 , 0.3], axisbg = None , projection = 'rectilinear'):
     self.fig.add_axes(pos , axisbg = axisbg, projection = projection)
 
-  def readdata(self, reflist , comment = '#' , regexp = None , substr = None):
+  def readdata(self, reflist , comment = '#' , regexp = None , substr = None, filename = True):
     """
     read data from files in reflist is really important this function has to be called every time because it gathers the plotting data.
     If you put a regular expression the function reads the data in line by line and extracts information it finds in between the data: if the regular expression is definedRemark ,the line by line reading is also used when the data is not compatible with np.loadtxt
@@ -101,7 +114,10 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
     for ref in reflist:
       print('start with the collection of data from file %s' %ref)
       plotf = open(ref, 'r')
-      prefixlist.append(re.sub('\.dat$' , '' , ref))
+      if not filename:
+        prefixlist.append( os.path.dirname(ref) + '/')
+      else:
+        prefixlist.append(re.sub('\.dat$' , '' , ref))
       try:
         if regexp != None:
           raise ValueError
@@ -139,26 +155,26 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
     self.reader = dr.ReaderOutput(reflist[0]) #Some plotting functions need a bit more information this info is extracted from the header of the files
     self.reader.depvar['depvar'] += ' (a.u.)'
 
-  def procesfiles(self, dirname , search , notsearch = r'\.swp|\.png', notdir = 'awfwfr', sortfunction = None , rev = False , regexp = None , substr = None , filelist = None ):
+  def procesfiles(self, dirname , search , notsearch = r'\.sw*|\.png', notdir = 'awfwfr', sortfunction = None , rev = False , regexp = None , substr = None , filelist = None , filename = True):
     filecol =File_Collector(dirname , search , notsearch = notsearch ,filelist = filelist , sortfunction = sortfunction , rev =rev )
-    self.readdata(filecol.plotfiles, regexp = regexp ,  substr = substr)
+    self.readdata(filecol.plotfiles, regexp = regexp ,  substr = substr, filename = filename)
 
-  def generate_plot(self, xlimg = None , ylimg =None , exname = '' , prefix = True):
+  def generate_plot(self, xlimg = None , ylimg =None , exname = '' , prefix = True , save = True):
     """
     some nice plots to visualize the data with matplotlib, plotg = true if you plot the energylevels of the sp levels of a geometry file
     """
     print ('start with the generation of plots')
     #plot of condensation energy
-    self.plotwrap(0,1, 'condensation energy (a.u.)' , name = 'ce' + exname ,titel = 'the condensation energy (a.u.)',xlim = xlimg , ylim = ylimg  , prefix = prefix)
-    self.plotwrap(0,2, 'energy (a.u.)' , name = 'ge'+ exname, titel = 'the energy (a.u.)', xlim = xlimg , ylim = ylimg , prefix = prefix )
+    self.plotwrap(0,2, 'energy (a.u.)' , name = 'ge'+ exname, titel = 'the energy (a.u.)', xlim = xlimg , ylim = ylimg , prefix = prefix ,save = save )
+    self.plotwrap(0,1, 'condensation energy (a.u.)' , name = 'ce' + exname ,titel = 'the condensation energy (a.u.)',xlim = xlimg , ylim = ylimg  , prefix = prefix,save = save )
 
-  def plotwrap(self, xindex, yindex, yas, name = None, titel = None ,color = 'r' , sort = '' , label = None , xlim = None , ylim = None , prefix = False):
+  def plotwrap(self, xindex, yindex, yas, name = None, titel = None ,color = 'r' , sort = '' , label = None , xlim = None , ylim = None , prefix = False,save = True):
     for i in range(len(self.datarg)):
       self.fig.axes[0].plot(self.datarg[i][:,xindex],self.datarg[i][:,yindex], color+sort , label = label)
-      if self.separated == True:
+      if self.separated == True and save:
         self.layout(self.reader.depvar['depvar'] , yas , tit = titel, xlim = xlim , ylim = ylim)
         self.savefig(name, filenum = i , prefix = prefix)
-    if self.separated == False:
+    if self.separated == False and save:
       self.layout(self.reader.depvar['depvar'] , yas , tit = titel, xlim = xlim , ylim = ylim)
       self.savefig(name + 'together' , prefix = prefix)
 
@@ -170,27 +186,53 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
           self.fig.axes[0].plot(self.datarg[k][self.kpunten[filenum][j][1] + interval[0]:self.kpunten[k][j][1] + interval[1],i],self.datarg[k][self.kpunten[k][j][1]+interval[0]:self.kpunten[k][j][1] + interval[1],i+1] , 'b' , label = label)
         self.savefig('%f' % (float(self.kpunten[k][j][0])), filenum = k) # you never want this together
 
-  def plotrgvars(self,cplane = False , begin = 0 , stop = None, name = '' , save = True , axnum = 0, xlim = None , ylim = None):
+  def plotrgvars(self,cplane = False , begin = 0 , stop = None, name = '' , save = True , axnum = 0, xlim = None , ylim = None , prefix = True):
     print('starting to plot the Richardson-Gaudin variables')
-    self.plotrgwrap(self.rgindex, 2*self.reader.npair+self.rgindex , self.reader.depvar['depvar'] , 'real part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 're'+ name , begin = begin , stop =stop , save = save, xlim = xlim , ylim = ylim)
-    self.plotrgwrap(self.rgindex+1, 2*self.reader.npair+self.rgindex+1 , self.reader.depvar['depvar'] ,'imaginary part rgvars (a.u.)',axnum = axnum , tit = 'Richardson-Gaudin variables', name = 'im'+ name, begin = begin , stop = stop  , save = save, xlim = xlim , ylim = ylim)
+    self.plotrgwrap(self.rgindex, 2*self.reader.npair+self.rgindex , self.reader.depvar['depvar'] , 'real part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 're'+ name , begin = begin , stop =stop , save = save, xlim = xlim , ylim = ylim, prefix = prefix)
+    self.plotrgwrap(self.rgindex+1, 2*self.reader.npair+self.rgindex+1 , self.reader.depvar['depvar'] ,'imaginary part rgvars (a.u.)',axnum = axnum , tit = 'Richardson-Gaudin variables', name = 'im'+ name, begin = begin , stop = stop  , save = save, xlim = xlim , ylim = ylim, prefix = prefix)
     if cplane:
-      self.plotrgwrap(self.rgindex, 2*self.reader.npair+self.rgindex ,'real part rgvars (a.u.)' ,'imaginary part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 'cp' + name, begin= begin , stop = stop , save = save, xlim = xlim , ylim = ylim)
+      self.plotrgwrap(self.rgindex, 2*self.reader.npair+self.rgindex ,'real part rgvars (a.u.)' ,'imaginary part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 'cp' + name, begin= begin , stop = stop , save = save, xlim = xlim , ylim = ylim, prefix = prefix)
 
-  def plotrgwrap(self, columnstart ,columnend  ,xas , yas , axnum = 0 ,tit = None , begin = 0  , stop = None, name = '' , color = 'b' , sort = '.' ,label = None , save = True , xlim = None , ylim = None):
+  def plotrgwrap(self, columnstart ,columnend  ,xas , yas , axnum = 0 ,tit = None , begin = 0  , stop = None, name = '' , color = 'b' , sort = '-' ,label = None , save = True , xlim = None , ylim = None, prefix = True):
     for j in xrange(len(self.datarg)):
+      #self.plotstar( number = 6 , length = 1  , sort = ['dashed', 'dashdot' ] , color = ['b','r']) #used to create the nice star plot in my factorisable interaction paper
       for i in xrange(columnstart,columnend,2):
         if 'cp' in name:
-          self.fig.axes[axnum].plot(self.datarg[j][begin:stop,i],self.datarg[j][begin:stop,i+1], color+sort , label = label)
+          sort = ':'
+          """
+          if j % 2 == 1:
+            color = 'r'
+            if i == columnstart:
+              label = r'$g > \frac{-1}{7}$'
+            else:
+              label = None
+          else:
+            color = 'b'
+            if i == columnstart:
+              label = r'$g < \frac{-1}{7}$' #to create the legend uncomment the automatical legend line in the layout
+            else:
+              label = None
+            """
+          self.fig.axes[axnum].plot(self.datarg[j][begin:stop,i],self.datarg[j][begin:stop,i+1], color+sort , label = label , markersize = 3)#, mfc = 'None')
         else:
-          self.fig.axes[axnum].plot(self.datarg[j][begin:stop,0],self.datarg[j][begin:stop,i] , label = label)
+          self.fig.axes[axnum].plot(self.datarg[j][begin:stop,0],self.datarg[j][begin:stop,i] , color, label = label)
       if self.separated == True and save:
         self.layout(xas , yas , tit = tit, xlim = xlim , ylim = ylim)
-        self.savefig(name , filenum = j)
+        self.savefig(name , filenum = j, prefix = prefix)
     if self.separated == False and save:
       self.layout(xas , yas , tit = tit, xlim = xlim , ylim = ylim)
-      self.savefig(name + 'together')
+      self.savefig(name + 'together', prefix = prefix)
     
+  def plotstar(self, number = 6 , length = 2  , sort =[ 'dashed', 'dashdot'], color = ['b','r']):
+    colorv  = color[0] ; sortv = sort[0]
+    for shift in [0, math.pi/number]:
+      for angle in [math.pi *2/6. * i + shift for i in range(number)]:
+        x = [0, math.cos(angle) * length]
+        y = [0, math.sin(angle) * length]
+        self.fig.axes[0].plot(x,y, colorv , linestyle = sortv)
+      colorv = color[1] ; sortv = sort[1]
+    print 'plotted star'
+
   def plotintofmotion(self,name = 'iom',stop =None,begin = 0 , xlim = None , ylim = None , samedir = False , colormap = None, axbg = None):
     columns = self.rgindex + 2 * self.reader.npair
     if colormap != None:
@@ -243,7 +285,7 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
       return (x - minv)/(maxv-minv)
     return f
 
-  def scatterplot(self ,  xvars , yvars , colorvars , colormap = 'hot' ,):
+  def scatterplot(self ,  xvars , yvars , colorvars , colormap = 'hot' ):
       cm = pl.cm.get_cmap(colormap)
       sc = self.fig.axes[0].scatter(xvars ,yvars, c=colorvars, cmap = cm )
       pl.colorbar(sc)
@@ -259,10 +301,29 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
       elif dif > 0:
         gronddat = gronddat[: -1.*dif , :]
       print np.shape(gronddat) , np.shape(self.datarg[i])
-      self.datarg[i][:,1:] = self.datarg[i][:,1:] - gronddat[:,1:] #we made sure that the data of the groundstateenergy is first in the rgdata list
+      self.datarg[i][:,1:3] = self.datarg[i][:,1:3] - gronddat[:,1:3] #we made sure that the data of the groundstateenergy is first in the rgdata list
     del(self.datarg[0], self.prefix[0])
 
-  def layout(self ,  xlab , ylab , xlim = None , ylim = None , tit = None , axnum = 0 , legendhand = None , legendlab = None , legendpos = 'best' , finetuning = False , axbg = None , fs = 12):
+  def slow_butsure_normalization(self):
+    print('Warning we normalize all the excited states to the groundstate energy')
+    gronddat =  self.datarg[0][:,2] 
+    depvals = list(self.datarg[0][:,0] )
+    for i in range(1,len(self.datarg)):
+      j = 0 ; gj = 0 ; end = np.shape(self.datarg[i])[0]
+      while j < end :
+        if depvals[gj] != self.datarg[i][j,0]:
+          try:
+            gj = depvals.index(self.datarg[i][j,0])
+          except ValueError:
+            self.datarg[i] = np.delete(self.datarg[i],j, axis=0)
+            end -= 1
+            print 'skipped some non-matching values for the normalization with the ground-state'
+            continue
+        self.datarg[i][j,2] = self.datarg[i][j,2] - gronddat[gj] #we made sure that the data of the groundstate-energy is first in the rgdata list
+        j += 1 ; gj += 1
+    del(self.datarg[0], self.prefix[0])
+
+  def layout(self ,  xlab , ylab , xlim = None , ylim = None , tit = None , axnum = 0 , legendhand = None , legendlab = None , legendpos = 'best' , finetuning = False , axbg = None , fs = 22, ticksize = 10):
     """
     In this function we finetune some aspects of the axes for all the tuning possibilitys see: http://matplotlib.org/api/axes_api.html
     especially the set functions ;)
@@ -278,14 +339,23 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
       self.fig.axes[axnum].set_title(tit , fontsize = fs)
     if legendlab != None:
       self.fig.axes[axnum].legend(legendhand , legendlab, loc = legendpos)  #if you want to add extra info
+    
+    #self.fig.axes[axnum].ticklabel_format(style='sci', axis='y') #force scientifique notation for y axis
+    #self.fig.axes[axnum].yaxis.major.formatter.set_powerlimits((0,0))
+    for tick in self.fig.axes[axnum].xaxis.get_major_ticks():
+      tick.label.set_fontsize(ticksize) 
+    for tick in self.fig.axes[axnum].yaxis.get_major_ticks():
+      tick.label.set_fontsize(ticksize) 
+
+    leg = self.fig.axes[axnum].legend(loc = legendpos) #draws the legend on axes[axnum] all the plots that you labeled are now depicted in legend
+
+    if axbg != None:
+      self.fig.axes[axnum].set_axis_bgcolor(axbg)
     """
     if you forgot to add a label to a line with linenumber: lnum you can do: self.fig.axes[axnum].lines[lnum].set_label('this is my new label')
     the underneath is the same as : h , l = self.fig.axes[axnum].get_legend_handles_labels()
                                     self.fig.axes[axnum].legend(h,l)
     """
-    #leg = self.fig.axes[axnum].legend(loc = legendpos) #draws the legend on axes[axnum] all the plots that you labeled are now depicted in legend
-    if axbg != None:
-      self.fig.axes[axnum].set_axis_bgcolor(axbg)
     if finetuning == True:
       # the matplotlib.patches.Rectangle instance surrounding the legend
       frame  = leg.get_frame()  
@@ -320,11 +390,14 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
         """
         Making use of some implementation detail of savefig, if we read in files from all different directory's, the prefixes contain the path of those files relative to the rootdirectory. So if you save the file we save it with first the prefix and then the name , so the figures end up in the same directory as the files. If you don't want this behaviour we need to remove the / in the prefixs so fig.savefig will not recognize it as a path so all the figures end up in the current working directory. Remark we only remove the / because if all the figures end up in same dir we need the path information to distinguish them.
         """
-        self.prefix = [pre.translate(None , '/')  for pre  in self.prefix]
+        self.prefix = [pre.translate(None , '/.')  for pre  in self.prefix]
       return '%s%s%d.png' %(self.prefix[filenum], name, filenum )
+      #return '%s%s.png' %(self.prefix[filenum], name)
     else:
       return '%s%d.png' %(name, filenum )
 
+  def writetext(self ,text , pos , axnum = 0, hor = None  ,ver = None , rot = None ,fs =14 , transform = None):
+    self.fig.axes[axnum].text(pos[0] ,pos[1] ,text , rotation = rot ,horizontalalignment = hor, verticalalignment = ver , fontsize = fs, transform = transform) #, color = 'black', style = 'italic')
 
   def least_sqr_fit(self,x, y):
     """
@@ -399,12 +472,50 @@ class Plot_Data_File(Plot_RG_Files ):
       begin += step
     makemovie(name = 'allstatesrgcloud')    
   
-  def plot_spectrum(self,xlim = None , ylim = None, search = 'plotenergy', rgw = True, intm = True, name = 'spectrum'):
+  def plot_spectrum(self,xlim = None , ylim = None, search = 'plotenergy', rgw = True, intm = True, name = 'spectrum', readgreen = False, standard = True, save = True):
     self.procesfiles(os.getcwd(), search, notsearch = r'\.swp|\.png', sortfunction = lambda x : -1. if '/0/' in x or 'ground' in x else 0.) #sortfunction makes sure the groundstate is first this is important for the normalization
-    self.standard_plot(rgw , intm)
-    self.normalize_to_groundstate()
+    if standard: self.standard_plot(rgw , intm)
+    #self.normalize_to_groundstate()
+    self.slow_butsure_normalization()
     self.separated = False
-    self.generate_plot(xlimg = xlim , ylimg = ylim, prefix = False , exname = name)
+    if readgreen: mine , pre = self.readgreen()                                                       
+    self.generate_plot(xlimg = xlim , ylimg = ylim, prefix = False , exname = name, save = save)
+    if readgreen: print mine , ' prefix is :', pre
+
+  def plot_gapsurvey(self,xlim = None , ylim = None, search = 'plotenergy', rgw = True, intm = True, name = 'spectrum', readgreen = True, standard = True, save = False, dir = '.'):
+    for i in os.listdir(dir):
+      if os.path.isdir(i):
+        os.chdir(i)
+        self.plot_spectrum(xlim = xlim, ylim = ylim, search = search, rgw = rgw, intm = intm, name = name , readgreen = readgreen, standard = standard , save = save )
+        os.chdir('..')
+    for pos,text in [((-0.28,300),'6p' ) ,((-0.28,490),'7p'),((-0.28,790),'8p'),((-0.22,900),'9p'),((-0.17,700),'10p'),((-0.1,900),'15p'),((-0.062,800),'20p'),((-0.040,860),'25p'),((-0.0215,950),'30p')]:
+      self.writetext(text , pos ,axnum = 0, hor = 'left', ver = 'bottom', rot = 0,fs =14)
+
+    self.layout(self.reader.depvar['depvar'] , 'energy (a.u.)' , tit = 'exploring the gap', xlim = xlim , ylim = ylim)
+    self.savefig( 'master' , filenum = 0 , samedir = False , prefix = False)
+
+  def readgreen(self):
+    readgreenpoint = self.reader.eta/(2.*(self.reader.npair-1) -2.*np.sum(np.array(self.reader.degeneracies)/4. -np.array(self.reader.seniorities)))
+    step = abs(self.datarg[0][0,0] -self.datarg[0][1,0])  
+    self.fig.axes[0].axvline(x = readgreenpoint,ymin = 0 , ymax = 1, c = 'b', linewidth = 1)
+    datareadgreen = [row[2]  for data in self.datarg for row in data if ((row[0] - step/2. <= readgreenpoint) and (row[0] + step/2.  >= readgreenpoint ) )] 
+    #datareadgreen = []
+    #for data in self.datarg:
+    #  f = False
+    #  for row in data:
+    #    if ((row[0] - step/2.< readgreenpoint) and (row[0] + step/2. > readgreenpoint ) ):
+    #      datareadgreen.append(row[2])
+    #      f = True
+    #      break
+    #  if f == False:
+    #    datareadgreen.append(1e9)
+    #assert(len(datareadgreen)  == len(self.prefix))
+    lowest = min(datareadgreen) 
+    file = open('readgreenfile.dat' , 'w')
+    file.write('#the read-green point is at: %f \n#the value of the lowest excited state is: %f\n#the filename of this state is: %s \n' %(readgreenpoint ,lowest, self.prefix[datareadgreen.index(lowest)] ))
+    file.close()
+    return lowest,  self.prefix[datareadgreen.index(lowest)]     
+
   
 class Plot_Xi_File(Plot_RG_Files):
   def __init__(self, name , search , regexp =r'constant:\s*([\-0-9.]+)'):
@@ -447,14 +558,14 @@ class Plot_Xi_File(Plot_RG_Files):
         sing = np.array(self.reader.elevels)* 2
       else:
         sing = self.reader.eta * np.array(self.reader.elevels) * np.array(self.reader.elevels)
-      for i in range(self.reader.nlevel):
+      for i in range(2):#self.reader.nlevel):
         self.fig.axes[0].axvline(x = sing[i] ,c=  'k',linestyle = '--')
       if self.separated == True:
-        self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s ' %(self.kpunten[j][0][0]) , fs = 20)
-        self.savefig(name , filenum = j)
+        self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s (a.u.)' %(self.kpunten[j][0][0]) , fs = 20)
+        self.savefig(name , filenum = j, prefix = False)
     if self.separated == False:
-      self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s ' %(self.kpunten[j][0][0]) , fs = 20)
-      self.savefig(name + 'together')
+      self.layout('real part of rgvars (a.u)', 'imaginary part of rgvars (a.u.)', xlim =xlim, ylim = ylim, tit = 'g = %s (a.u.)' %(self.kpunten[j][0][0]) , fs = 20)
+      self.savefig(name + 'together' , prefix = False )
 
 class Plot_All_File(Plot_RG_Files):
   def __init__(self,name, g , regexp = r'seniority\s\[(.+?)\]',substr = r'\{.*\}'):
@@ -469,7 +580,7 @@ class Plot_All_File(Plot_RG_Files):
     """
     print self.kpunten
     for i in range(len(self.kpunten[0])):
-      self.fig.axes[0].text(0.65,0.85,'sen ='+ self.kpunten[0][i][0],transform = self.fig.axes[0].transAxes)
+      self.writetext('sen ='+ self.kpunten[0][i][0], (0.65,0.85), axnum = 0, hor = None  ,ver = None , rot = None ,fs =14 , transform = self.fig.axes[0].transAxes)
       if i == len(self.kpunten[0]) -1 :
         end = None
       else:
@@ -477,12 +588,14 @@ class Plot_All_File(Plot_RG_Files):
       print end
       self.plotrgwrap( self.rgindex,2*self.reader.npair+self.rgindex,'real part of rgvars (a.u)' , 'imaginary part of rgvars (a.u.)', tit ='RG vars g = %f all states'%(self.chardata) , begin = self.kpunten[0][i][1]  , stop = end , name = 'cpcloud'+ self.kpunten[0][i][0] , filenum = 0)
   
-  
 def main(option, args):
   plotter = Plot_Data_File()
   plottergeo = Plot_Geo_File()
   if option == 'pexcited':
-    plotter = Plot_Data_File().plot_spectrum(xlim = None , ylim = None, search = 'plotenergy', rgw = True, intm = True, name = 'spectrum')
+    plotter.plot_spectrum(xlim = (-0.3,0), ylim = (0,1000), search = 'plotenergy', rgw = True, intm = True, name = 'spectrum' , readgreen = True, standard = False, save = False)
+
+  if option == 'gapsurvey':
+    plotter.plot_gapsurvey(xlim = (-0.3,0), ylim = (0,1000), search = 'plotenergy', rgw = True, intm = True, name = 'spectrum' , readgreen = True, standard = False, save = False,dir = '.')
 
   if option == 'wpairing':
     if args[1] == True:
@@ -490,7 +603,7 @@ def main(option, args):
       plottergeo.generate_plot()
     else:
       plotter.procesfiles(args[0],'plotenergy')
-      plotter.generate_plot(xlimg = None, ylimg =None)
+      plotter.generate_plot(xlimg = None, ylimg = None)
 
   if option == 'inset':
     """
@@ -498,9 +611,10 @@ def main(option, args):
     area of interest with matplotlib
     """
     plotter.readdata([args[0]])
+    plotter.reader.depvar['depvar'] = r'$\eta$ (a.u.)'  #change the future x-axis label to latex 
     begin =0
     stop = None
-    plotter.plotrgvars(begin = begin , stop = stop , name = 'etanul', save = False)
+    plotter.plotrgvars(begin = begin , stop = stop , name = 'etanul2', save = False)
     begin =  9880
     stop = None
     plotter.rgindex = 5
@@ -523,8 +637,10 @@ def main(option, args):
     begin =0
     stop = None
     cp = args[1]
-    plotter.procesfiles(args[0],'plotenergy')
-    plotter.plotrgvars(cplane = cp , begin = begin , stop = stop , name = 'small', xlim = None, ylim = None)
+    plotter.procesfiles(args[0],'plotenergy',filename = False)
+    plotter.reader.depvar['depvar'] = 'g (a.u.)'  #change the future x-axis label to latex 
+    plotter.separated = False
+    plotter.plotrgvars(cplane = cp , begin = begin , stop = stop , name = '', xlim = (-1,1.), ylim = (-1,1.), prefix = True)
   
   if option is 'rgcloud':
     name = 'newstyleDang120neutronwin5_5sen2.dat'
@@ -547,7 +663,7 @@ def main(option, args):
       plotter.perezlattice()
 
   if 'xi' in option:
-    plotterxi = Plot_Xi_File(args[0], args[1], regexp = args[2])
+    plotterxi = Plot_Xi_File(args[0], args[1], regexp = r'constant:\s*([\-0-9.]+)')
     if option is 'xipath':
       #plotterxi.procesfiles(args[0],args[1] , regexp = r'constant:\s*([\-0-9.]+)')
       plotterxi.separated = True
@@ -564,9 +680,9 @@ def defineoptions():
   by adding empty sp levels and get from those files the groundstate energy at a constant g and plot them and perform lin.regression 
   '''
   #common options are: wpairing, rgvar, intmotion
-  option = 'pexcited'
+  option = 'rgvar'
   #args =  -0.137 , None
-  args = '.', True,'.',r'constant:\s*([\-0-9.]+)', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False 
+  args =  '.',True , 'xipath',True, 'xipath' ,  False,'.',r'constant:\s*([\-0-9.]+)', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False 
   main(option,args)
 
 if __name__ == '__main__':
