@@ -184,6 +184,8 @@ def calcnintgrondtoestand(rgeq):
   REMARK: with seniority zero for all sp levels
   """
   som,i = 0  ,0
+  #Moet functie bij voor het Dicke model
+  '''
   apair = rgeq.apair
   while apair > 0:
     som += rgeq.energiel[i]*(rgeq.ontaardingen[i]-rgeq.senioriteit[i]*2)
@@ -191,6 +193,7 @@ def calcnintgrondtoestand(rgeq):
     i += 1
   if apair < 0:
     som += rgeq.energiel[i-1]*apair*2
+  '''
   return som  
 
 #functie die de gemiddelde afstand tussen de eerste alev niveaus, in waarden meegeeft
@@ -522,7 +525,7 @@ def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataan
       pass
   return 0  
   
-def create_predefined_rgeq(interactionconstant,eta,npair,nlevel , hamiltonian ,inputname):
+def create_predefined_rgeq(interactionconstant,eta,npair,nlevel , hamiltonian ,inputname,epsilon0 = 0.0):
   #gathering of the input we need to generate a RichEq object which we shall solve
   if inputname == 'r':
     energy , degeneration, seniority = wp.romboutsprob() #typical interacion constant between -0.075 and -0.0001 for groundstate typical n of pairs is 10 (quarterfilling)
@@ -537,6 +540,8 @@ def create_predefined_rgeq(interactionconstant,eta,npair,nlevel , hamiltonian ,i
     rgeq = rg.RichRedBcs(energy, degeneration, seniority , interactionconstant , npair)
   elif hamiltonian == 'f':
     rgeq = rg.RichFacInt(energy , degeneration, seniority , interactionconstant ,eta ,npair)
+  elif hamiltonian == 'D':
+    rgeq = rg.Dicke(energy, degeneration,interactionconstant, epsilon0,npair)
   else:
     print 'unknown Hamiltonian at the moment only the factorisable interaction (f) and reduced BCS Hamiltonian (r) are implemented'
     sys.exit(1)

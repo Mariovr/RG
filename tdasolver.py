@@ -314,7 +314,7 @@ class TdaDicke(TdaSolver):
         pl.text(self.singularitys[i], self.g*0.5 ,"o:%g"%self.ontaardingen[i])
     
     pl.legend(loc = 'lower left', numpoints=1)
-    pl.savefig('TDA.png')
+    pl.savefig(str(self.g)+'-TDA.png')
     pl.show()
 
     

@@ -170,7 +170,7 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
           self.fig.axes[0].plot(self.datarg[k][self.kpunten[filenum][j][1] + interval[0]:self.kpunten[k][j][1] + interval[1],i],self.datarg[k][self.kpunten[k][j][1]+interval[0]:self.kpunten[k][j][1] + interval[1],i+1] , 'b' , label = label)
         self.savefig('%f' % (float(self.kpunten[k][j][0])), filenum = k) # you never want this together
 
-  def plotrgvars(self,cplane = False , begin = 0 , stop = None, name = '' , save = True , axnum = 0, xlim = None , ylim = None):
+  def plotrgvars(self,cplane = False, begin = 0 , stop = None, name = '' , save = True , axnum = 0, xlim = None , ylim = None):
     print('starting to plot the Richardson-Gaudin variables')
     self.plotrgwrap(self.rgindex, 2*self.reader.npair+self.rgindex , self.reader.depvar['depvar'] , 'real part rgvars (a.u.)',axnum = axnum ,tit =  'Richardson-Gaudin variables', name = 're'+ name , begin = begin , stop =stop , save = save, xlim = xlim , ylim = ylim)
     self.plotrgwrap(self.rgindex+1, 2*self.reader.npair+self.rgindex+1 , self.reader.depvar['depvar'] ,'imaginary part rgvars (a.u.)',axnum = axnum , tit = 'Richardson-Gaudin variables', name = 'im'+ name, begin = begin , stop = stop  , save = save, xlim = xlim , ylim = ylim)
@@ -344,7 +344,8 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
   def standard_plot(self , rgw = True , intm = True):
     self.generate_plot()
     if rgw:
-      self.plotrgvars(cplane = False , begin = 0 , stop = None)
+      #cplane eventjes op True gezet
+      self.plotrgvars(cplane = True , begin = 0 , stop = None)
     if intm:
       self.plotintofmotion()
 
@@ -570,5 +571,5 @@ def defineoptions():
   main(option,args)
 
 if __name__ == '__main__':
-  defineoptions()
-  #makemovie()
+  #defineoptions()
+  makemovie()

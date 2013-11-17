@@ -8,6 +8,7 @@ import copy
 from tdasolver import *
 import newtonraphson as nr
 import rgfunctions as rgf
+import datareader as dr
 #source code krylov solver is at scipy/optimize/nonlin.py
 
     
@@ -387,6 +388,10 @@ class Dicke(RichardsonEq):
       *******************************************"""
     print updateE
     return updateE
+  def __str__(self):
+    s = super(Dicke,self).__str__()
+    s += '#And epsilon_0 is determined by: %f\n' %self.epsilon0
+    return s
     
   def copy(self):
     #self made copy function because copy.deepcopy() is to damn slow
@@ -397,6 +402,7 @@ class Dicke(RichardsonEq):
     d = Dicke(self.energiel,self.ontaardingen,self.g,self.epsilon0,self.apair,xi = self.xi,rgsol = rgcop)
     d.energy = self.energy
     return d
+
 
 
 class RichardsonSolver(object):
@@ -442,35 +448,59 @@ class RichardsonSolver(object):
     Function that determines the tda distribution corresponding with the Richardson-Gaudin solution (rgvar) of the Richardson-Gaudin
     variables at Xi = 0
     '''
-    tdadict = np.zeros(self.richeq.alevel)
+    if isinstance(self.richeq,Dicke):
+      tdadict = np.zeros(self.richeq.alevel+1)
+    else:
+      tdadict = np.zeros(self.richeq.alevel)
     assert(self.richeq.xi <= 0.01)
     realrgvar = self.richeq.rgsolutions.real
     realrgvar.sort()
     assert(self.tda.g is not 0.)
     i ,j  = 0,0 
-    while j != len(realrgvar):
-      if self.tda.g < 0 and i is 0:
-        x1 = self.tda.singularitys[0]- abs( self.tda.get_extremeboundaries())*2.
-        x2 = self.tda.singularitys[0]
-      elif i != 0:
-        try:
+    
+    if isinstance(self.richeq,Dicke):
+      while j != len(realrgvar):
+        if i == 0:
+          x1 = self.tda.singularitys[0] + 100*self.tda.get_lowerboundaries()
+          x2 = self.tda.singularitys[0]
+        elif i == len(self.tda.singularitys):
+          x1 = self.tda.singularitys[i-1]
+          x2 = self.tda.singularitys[i-1] + 100*self.tda.get_upperboundaries()
+        else:
           x1 = self.tda.singularitys[i-1]
           x2 = self.tda.singularitys[i]
-        except IndexError:  
-          assert(self.tda.g > 0)
-          x1 = self.tda.singularitys[i-1]
-          x2 = self.tda.singularitys[i-1]+ abs(self.tda.get_extremeboundaries()) *2.    
-      else: #handles case i ==0 and g>0
-        i +=1
-        continue
-      if x1 < realrgvar[j] and  x2 > realrgvar[j]:
-        if self.tda.g > 0:
-          tdadict[i-1] += 1
-        else:
+
+        if x1 < realrgvar[j] and x2 > realrgvar[j]:
           tdadict[i] += 1
-        j += 1
-      else:
-        i+=1 
+          j+=1
+        else:
+          i+=1
+
+    else:
+      while j != len(realrgvar):
+        if self.tda.g < 0 and i is 0:
+          x1 = self.tda.singularitys[0]- abs( self.tda.get_extremeboundaries())*2.
+          x2 = self.tda.singularitys[0]
+        elif i != 0:
+          try:
+            x1 = self.tda.singularitys[i-1]
+            x2 = self.tda.singularitys[i]
+          except IndexError:  
+            assert(self.tda.g > 0)
+            x1 = self.tda.singularitys[i-1]
+            x2 = self.tda.singularitys[i-1]+ abs(self.tda.get_extremeboundaries()) *2.    
+        else: #handles case i ==0 and g>0
+          i +=1
+          continue
+        if x1 < realrgvar[j] and  x2 > realrgvar[j]:
+          if self.tda.g > 0:
+            tdadict[i-1] += 1
+          else:
+            tdadict[i] += 1
+          j += 1
+        else:
+          i+=1 
+
     assert(sum(tdadict) == len(realrgvar))
     #self.tda.tdadict = tdadict
     return tdadict
@@ -573,7 +603,7 @@ class RichardsonSolver(object):
     self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
     xifile = open(fname ,'w')
-    #rgf.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
+    dr.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
     xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
     if reverse:
       sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
@@ -706,13 +736,16 @@ def maintest():
   #Dicke test
   g = -0.5
   apair = 5
-  tdastartd = {0:1,1:1,2:1,3:1,4:1}
+  eendlev = array([2.0,3.0])
+  ontaardingen = array([2.0,2.0])
+  tdastartd = {0:3,1:1,2:1}
   epsilon0 = 0.5
+  
   dickeeq = Dicke(eendlev,ontaardingen,g,epsilon0,apair)
   a = RichardsonSolver(dickeeq)
   rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
-  a.writexipath()
-  a.plotrgvarsxi()
+  tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
+  print tdad 
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)

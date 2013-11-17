@@ -64,7 +64,7 @@ class Reader(object):
     self.filename = filename
     self.inputline = inputline
     self.comment = comment
-    self.nlevel , self.npair , self.g , self.rgvars, self.eta = None , None , None, None, None
+    self.nlevel , self.npair , self.g , self.rgvars, self.eta, self.epsilon0 = None , None , None, None, None, None
     self.elevels, self.degeneracies , self.seniorities = [],  [] , []
     self.depvar = {'depvar' : "",'depval': None} #This attribute contains a string, that defines the independend variable that is chanced under the header (only relevant for outputfiles, set by read (if it apply's )) , and the second element is the value of the independend variable where the rgvars are read in (set by readrgvars)
     self.tdadist = None
@@ -93,6 +93,8 @@ class Reader(object):
       rgeq = rg.RichRedBcs(self.elevels, self.degeneracies , self.seniorities, self.g, self.npair , rgsol = self.rgvars)
     elif types == 'RichFacInt' :
       rgeq = rg.RichFacInt(self.elevels, self.degeneracies, self.seniorities,self.g,self.eta,self.npair, rgsol = self.rgvars)
+    elif types == 'Dicke' :
+      rgeq = rg.Dicke(self.elevels, self.degeneracies, self.g, self.epsilon0, self.npair, rgsol = self.rgvars)
     else:
       raise Exception("%s is not a subclass of RichardsonEq (see the file: richardsongaudin.py)" %types )
     if rgeq.rgsolutions != None:
@@ -131,8 +133,13 @@ class ReaderOutput(Reader):
             match = re.search(r':*\s*([+\-\d.]+[eE+\-\d]*)', line) 
             if match: 
               self.eta = float(match.group(1))
+          elif 'epsilon0' in line:
+              match = re.search(r':\s*([\-+.\deE]+)', line)
+              if match:
+                self.epsilon0 = float(match.group(1))
           elif 'tda' in line:
             self.tdadist = matchdict(line) 
+            print "tdadist = ",self.tdadist
         elif line.startswith(self.comment):
           continue
         else:
