@@ -1,3 +1,11 @@
+# This program is free software. It comes without any warranty, to the extent
+# permitted by applicable law. You may use it, redistribute it and/or modify
+# it, in whole or in part, provided that you do so at your own risk and do not
+# hold the developers or copyright holders liable for any claim, damages, or
+# other liabilities arising in connection with the software.
+# 
+# Developed by Mario Van Raemdonck, 2013;
+# (c) Ghent University, 2013
 import sys,math , os  , shutil 
 import numpy as np
 from numpy import ones, zeros ,array, sort,linalg,empty
@@ -98,7 +106,7 @@ def genstartsol(rgeq,d,end,pairingd = None , begin = None):
   '''
   Generates a start solution, if no solution is known in one of the two limits where it's easy to find a solution
   REMARK: make sure that step is positive
-  TODO: couple bcs code to this code because Mario Van Raemdonck's thesis indicated that the critical point at the smallest interaction
+  TODO: couple bcs code to this code because my thesis indicated that the critical point at the smallest interaction
   constant was correlated to the point where the BCS gap becomes zero.
   #################
   RETURNS: float(energierg) the energie of the solution of the Richardson-Gaudin variables, np.array(apair,np.complex)  the Richardson-Gaudin

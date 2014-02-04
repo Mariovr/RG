@@ -1,15 +1,25 @@
+# This program is free software. It comes without any warranty, to the extent
+# permitted by applicable law. You may use it, redistribute it and/or modify
+# it, in whole or in part, provided that you do so at your own risk and do not
+# hold the developers or copyright holders liable for any claim, damages, or
+# other liabilities arising in connection with the software.
+# 
+# Developed by Mario Van Raemdonck, 2013;
+#
+# Contributed by:
+#   Pieter Claeys : added Dicke model
+#
+# (c) Ghent University, 2013
 # -*- coding: utf-8 -*-
 import numpy as np
-from numpy import array, zeros, ones, arange,copy
+from numpy import array, zeros, ones, arange,copy 
 from numpy import append, delete, polynomial #not compatible with pypy 1/10/2012 
 from math import sqrt
+from scipy import linalg
 
-import copy
 from tdasolver import *
-import newtonraphson as nr
 import rgfunctions as rgf
-#source code krylov solver is at scipy/optimize/nonlin.py
-
+import datareader as dr
     
 class XiError(Exception):
   def __init__(self,xi,energy,rgvars):
@@ -96,15 +106,20 @@ class RichardsonEq(object):
     zerosd = self(self.rgsolutions) 
     print "putting the solutions of the RG variables back in the RG equations gives (needs to be zero):"
     print zerosd
-    return sum(abs(test_goodsol))
   
   def solve(self,goodguess = None,tol = 1e-10):
-    if goodguess == None:
-      self.rgsolutions = nr.solve(self,self.rgsolutions ,tol = tol)
-    else:
-      self.rgsolutions = nr. solve(self,goodguess,tol = tol)
-    self.energy = self.get_energy()
-    return self.energy
+    """
+    We solve the set of nonlinear equations with the newton-raphson method.
+    tol is the accuracy of the solution    """
+    if goodguess != None:
+      self.rgsolutions = goodguess  
+    for i in xrange(120):
+      nauw = abs(self(self.rgsolutions))
+      if sum(nauw) < tol: 
+        self.energy = self.get_energy()
+        return self.energy
+      self.rgsolutions = self.rgsolutions +linalg.solve(self.jacobian(self.rgsolutions),-self(self.rgsolutions))       
+    raise ValueError("Too many iterations")
 
   def intofmotion(self):
     """
@@ -220,6 +235,7 @@ class RichFacInt(RichardsonEq):
     """
     self.eta = eta_ #make sure you set first the not inherited variables because the initialisation function of RichardsonEq contains solve and that function makes use of all the variables 
     super(RichFacInt,self).__init__(energiel_,ontaard_,senior_, koppelingsconstante,apair_ ,xi = xi,rgsol = rgsol)
+    #self.energiel = np.sqrt(self.energiel)  #to make sure that self.energiel corresponds to our physical intuition of sp energy, (if we don't take the square root it corresponds to the pairing interaction terms D_i)    
   
   def __call__(self,x):
     rgfunc = zeros(self.apair,complex)
@@ -573,8 +589,8 @@ class RichardsonSolver(object):
     self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
     xifile = open(fname ,'w')
-    #rgf.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
-    xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
+    dr.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
+    xfile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
     if reverse:
       sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
     for opl in self.xisolutions:
@@ -611,7 +627,8 @@ class RichardsonSolver(object):
     pl.title('Richardson-Gaudin variables at g = %f (xi in [0,1])' %(self.richeq.g))
     if xlim != None: pl.xlim((singularitys[0]-(singularitys[-1]-singularitys[0])/2.,singularitys[-1]+(singularitys[-1]-singularitys[0])/2.))
     if ylim != None: pl.ylim(ylim)
-    plotname = '%s%f%s' %(xiname,self.richeq.g,str(self.tda.tdadict).translate(None,' ') )
+    #plotname = '%s%f%s' %(xiname,self.richeq.g,str(self.tda.tdadict).translate(None,' ') )
+    plotname = '%s%f' %(xiname,self.richeq.g )
     if isinstance(self.richeq,RichFacInt):
       plotname += 'eta:'+str(self.richeq.eta)
     pl.savefig(plotname+'.png')
@@ -727,9 +744,6 @@ def test_copy():
   print rgeq.energiel , d.energiel
   d.g = -10.
   print rgeq.g , d.g
-
-def test():
-  print RichRedBcs([0],[0],[0], -0.2 , 4)
 
 if __name__ == "__main__":
   maintest()
