@@ -1,3 +1,11 @@
+# This program is free software. It comes without any warranty, to the extent
+# permitted by applicable law. You may use it, redistribute it and/or modify
+# it, in whole or in part, provided that you do so at your own risk and do not
+# hold the developers or copyright holders liable for any claim, damages, or
+# other liabilities arising in connection with the software.
+# 
+# Developed by Mario Van Raemdonck, 2013;
+# (c) Ghent University, 2013
 import sys,math , os  , shutil 
 import numpy as np
 from numpy import ones, zeros ,array, sort,linalg,empty
