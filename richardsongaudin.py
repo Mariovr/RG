@@ -589,12 +589,8 @@ class RichardsonSolver(object):
     self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
     xifile = open(fname ,'w')
-<<<<<<< HEAD
-    #rgf.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
-=======
     dr.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
->>>>>>> Made overlaps.py and richardsongauding.py consistent with the new Reader
-    xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
+    xfile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
     if reverse:
       sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
     for opl in self.xisolutions:
@@ -748,9 +744,6 @@ def test_copy():
   print rgeq.energiel , d.energiel
   d.g = -10.
   print rgeq.g , d.g
-
-def test():
-  print RichRedBcs([0],[0],[0], -0.2 , 4)
 
 if __name__ == "__main__":
   maintest()

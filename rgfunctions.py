@@ -106,7 +106,7 @@ def genstartsol(rgeq,d,end,pairingd = None , begin = None):
   '''
   Generates a start solution, if no solution is known in one of the two limits where it's easy to find a solution
   REMARK: make sure that step is positive
-  TODO: couple bcs code to this code because Mario Van Raemdonck's thesis indicated that the critical point at the smallest interaction
+  TODO: couple bcs code to this code because my thesis indicated that the critical point at the smallest interaction
   constant was correlated to the point where the BCS gap becomes zero.
   #################
   RETURNS: float(energierg) the energie of the solution of the Richardson-Gaudin variables, np.array(apair,np.complex)  the Richardson-Gaudin
