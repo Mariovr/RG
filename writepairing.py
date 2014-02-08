@@ -219,7 +219,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
   #if rgeq.rgsolutions is None we haven't determined any rg variables so the first solution has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
   #start from the previous solution if the stepwidth of the dependent variable of the file is low enough (WATCH OUT for critical points)
-  if rgeq.rgsolutions is None: 
+  if rgeq.rgsolutions is None and pairingd is not None: 
     rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival)   
     energierg = rgeq.get_energy()
   rgeqsaveback = None

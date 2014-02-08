@@ -337,6 +337,19 @@ def checkdegeneratie(waarden,deg,nauw = 0.00000000001):
   assert(nlev == len(deg))
   return nlev, deg
 
+def uncheckdegeneratie(waarden,deg):
+  """
+  undo checkdegeneratie
+  REMARK: returns the new list of energylevels and degeneracies -> so no in place change of the energylevels
+  """
+  newe = []
+  for i , de in enumerate(deg):
+    num = de/2
+    newe += [waarden[i]] * num
+  deg = ones(len(newe)) *2.
+  sen = zeros(len(newe)) 
+  return array(newe) , deg, sen
+
 def tdadict_kleinekoppeling(npair,degen,sen):
   """
   function that creates the dictionary that relates the pairs to the tda solutions if the interaction constant is really weak.

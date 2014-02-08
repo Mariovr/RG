@@ -98,6 +98,16 @@ class RichardsonEq(object):
 
   def set_rgsolutions(self,rgsol):
     self.rgsolutions = array(rgsol)
+
+  def set_energiel(self,elev):
+    self.energiel = array(elev) 
+    self.alevel = len(elev)
+
+  def set_degeneracies(self,deg):
+    self.ontaardingen = array(deg)
+
+  def set_seniority(self,sen):
+    self.senioriteit = array(sen)
   
   def setvar(self,var,val):
     setattr(self,var,val)

@@ -28,17 +28,33 @@ class CorrelationFunction(object):
   REMARK REMARK REMARK: The energylevels faribault et. al. use are defined as the pair energies they are twice the sp energies used in my solver
   so I need to multiply rgeq.energiel with 2 to replace the energy in their formulas to obtain the correct answers for the correlationcoefficients.
   """
-  def __init__(self, rgeq):
+  def __init__(self, rgeq , calc_2rdm = True):
     self.rgeq = rgeq
     self.gaudinmatrix = self.get_matrix(self.rgeq.apair, self.gaudinfunction)
     self.norm = self.get_norm()
     self.rdm1 = self.get_1rdm()
+    if calc_2rdm:
+      self.calc_2rdm()
     
-  def set_rgeq(self,rgeq):
+  def set_rgeq(self,rgeq ,calc_2rdm = True):
     self.rgeq = rgeq
     self.gaudinmatrix = self.get_matrix(self.rgeq.apair, self.gaudinfunction)
     self.norm = self.get_norm()
     self.rdm1 = self.get_1rdm()
+    if calc_2rdm:
+      self.calc_2rdm()
+
+  def calc_2rdm(self):
+    self.nn = self.get_nn()
+    self.pm = self.get_pm()
+
+  def get_element_2rdm(self,i,j,k,l):
+    if i== j and k == l:
+      return self.pm[i,k]
+    elif i == k and j == l : 
+      return self.nn[i,j]
+    else:
+      return 0.
 
   def get_matrix(self, dim , function ,*args):
     gmat = fromiter((function(i,j, *args) for i in xrange(dim) for j in xrange(dim)), np.complex)         
