@@ -69,7 +69,7 @@ def main():
     tdadict = str2tdadict(tdadict)
 
   #creation of directory name where we save the output of the run
-  name = "type%srun_%s_p%gl%g" %(rgeq.__class__.__name__,runstring,rgeq.apair,rgeq.alevel) 
+  name = "%srun_%s_p%gl%g" %(rgeq.__class__.__name__,runstring,rgeq.apair,rgeq.alevel) 
   if filename != None: name += filename
   else: name += 'inputname_' + inputname 
   if args: 

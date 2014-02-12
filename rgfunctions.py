@@ -344,11 +344,11 @@ def uncheckdegeneratie(waarden,deg):
   """
   newe = []
   for i , de in enumerate(deg):
-    num = de/2
+    num = int(de/2)
     newe += [waarden[i]] * num
   deg = ones(len(newe)) *2.
   sen = zeros(len(newe)) 
-  return array(newe) , deg, sen
+  return array(newe) , deg, sen , len(newe)
 
 def tdadict_kleinekoppeling(npair,degen,sen):
   """

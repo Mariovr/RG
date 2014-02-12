@@ -588,6 +588,13 @@ class Plot_All_File(Plot_RG_Files):
       print end
       self.plotrgwrap( self.rgindex,2*self.reader.npair+self.rgindex,'real part of rgvars (a.u)' , 'imaginary part of rgvars (a.u.)', tit ='RG vars g = %f all states'%(self.chardata) , begin = self.kpunten[0][i][1]  , stop = end , name = 'cpcloud'+ self.kpunten[0][i][0] , filenum = 0)
   
+def plot(name, ylim = None):
+  #plots a two column file column 1 is x-axis, column 2 is y-axis
+  data = np.loadtxt(name)
+  pl.plot(data[:,0] ,data[:,1] )
+  if ylim != None: pl.ylim( ylim)
+  pl.savefig('%s.png' %name.strip('.dat'))
+
 def main(option, args):
   plotter = Plot_Data_File()
   plottergeo = Plot_Geo_File()
@@ -602,7 +609,8 @@ def main(option, args):
       plottergeo.procesfiles(args[0], 'plotenergy')
       plottergeo.generate_plot()
     else:
-      plotter.procesfiles(args[0],'plotenergy')
+      plotter.readdata(args[0])
+      #plotter.procesfiles(args[0],'plotenergy')
       plotter.generate_plot(xlimg = None, ylimg = None)
 
   if option == 'inset':
@@ -637,7 +645,8 @@ def main(option, args):
     begin =0
     stop = None
     cp = args[1]
-    plotter.procesfiles(args[0],'plotenergy',filename = False)
+    #plotter.procesfiles(args[0],'plotenergy',filename = False)
+    plotter.readdata(args[0])
     plotter.reader.depvar['depvar'] = 'g (a.u.)'  #change the future x-axis label to latex 
     plotter.separated = False
     plotter.plotrgvars(cplane = cp , begin = begin , stop = stop , name = '', xlim = (-1,1.), ylim = (-1,1.), prefix = True)
@@ -680,9 +689,9 @@ def defineoptions():
   by adding empty sp levels and get from those files the groundstate energy at a constant g and plot them and perform lin.regression 
   '''
   #common options are: wpairing, rgvar, intmotion
-  option = 'rgvar'
+  option = 'wpairing'
   #args =  -0.137 , None
-  args =  '.',True , 'xipath',True, 'xipath' ,  False,'.',r'constant:\s*([\-0-9.]+)', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False 
+  args =  'plotenergy.dat' ,'.',True , 'xipath',True, 'xipath' ,  False,'.',r'constant:\s*([\-0-9.]+)', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False 
   main(option,args)
 
 if __name__ == '__main__':
