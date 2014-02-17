@@ -29,15 +29,18 @@ class CorrelationFunction(object):
   so I need to multiply rgeq.energiel with 2 to replace the energy in their formulas to obtain the correct answers for the correlationcoefficients.
   """
   def __init__(self, rgeq , calc_2rdm = True):
-    self.rgeq = rgeq
-    self.gaudinmatrix = self.get_matrix(self.rgeq.apair, self.gaudinfunction)
-    self.norm = self.get_norm()
-    self.rdm1 = self.get_1rdm()
-    if calc_2rdm:
-      self.calc_2rdm()
+    if rgeq != None:
+      self.rgeq = rgeq 
+      self.re_calc(calc_2rdm)
+    else:
+      pass
     
   def set_rgeq(self,rgeq ,calc_2rdm = True):
     self.rgeq = rgeq
+    self.re_calc(calc_2rdm)
+
+  def re_calc(self, calc_2rdm = True):
+    self.rgeq.solve() #check that the Richardson-Gaudin variables are already defined and if something else is set recalc the RG vars
     self.gaudinmatrix = self.get_matrix(self.rgeq.apair, self.gaudinfunction)
     self.norm = self.get_norm()
     self.rdm1 = self.get_1rdm()

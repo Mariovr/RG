@@ -92,7 +92,7 @@ class Reader(object):
     """
     raise Exception("Implement this function in a subclass from Reader")
   
-  def make_rgeq(self , types = None , depvar = 'g'):
+  def make_rgeq(self , types = None , depvar = 'g', index = 0):
     """
     returns a RichardsonEq object, if the rgvars are read in with xi = 1 otherwise with low xi and no energy
     """
@@ -105,8 +105,8 @@ class Reader(object):
       raise Exception("%s is not a subclass of RichardsonEq (see the file: richardsongaudin.py)" %types )
     if rgeq.rgsolutions != None:
       rgeq.xi = 1.
-      try: rgeq.setvar(self.depvar['depvar'],self.depvar['depval'])
-      except : rgeq.setvar(depvar,self.depvar['depval'])
+      try: rgeq.setvar(self.depvar['depvar'],self.depvar['depval'], index)
+      except : rgeq.setvar(depvar,self.depvar['depval'], index)
       rgeq.solve() #sets the energy
 
     return rgeq

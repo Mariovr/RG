@@ -18,6 +18,7 @@ import richardsongaudin as rg
 import rgfunctions as rgf
 import writepairing as wp
 import datareader as dr
+import varRG as vrg
 
 import pylab as pl
 import sys
@@ -65,9 +66,7 @@ class Chem_Ham(Hamiltoniaan):
           som += self.eri[i,i,j,j] *rgcor.get_element_2rdm(i,i,j,j)
       som += self.eri[i,i,i,i] *rgcor.get_element_2rdm(i,i,i,i)
     som += self.nucnuc
-    print '------------------------------------------------'
-    print 'The total energy = %f' %som
-    print '------------------------------------------------'
+    print 'The energy = %f' %som
     return som
   
   def get_2p_integrals(self):
@@ -159,9 +158,7 @@ class General_Pairing_Ham(Hamiltonian):
         if i != j:
           som += self.gij[i,j] *rgcor.get_element_2rdm(i,i,j,j)
       som += self.gij[i,i] *rgcor.get_element_2rdm(i,i,i,i)
-    print '------------------------------------------------'
-    print 'The total energy = %f' %som
-    print '------------------------------------------------'
+    print 'The energy = %f' %som
     return som
 
   def get_2p_integrals(self):
@@ -188,36 +185,15 @@ class General_Pairing_Ham(Hamiltonian):
       isom += k+1 
     return newgij
 
-def create_output_file(name, start , step ,  end):
-  """
-  Help function for the nucleon() test hereunder, it generates some RG variables for a desired range of the interaction variable
-  in a file called 'plotenergy.dat', together with some plots, and at the end it changes to the directory where all the output is saved.
-  """
-  fname = 'input%s.dat' %name
-  with open(fname, 'w') as inputfile:
-    inputfile.write("""% create input file for a rg calculation
-%
-RichardsonEq : RichRedBcs
-energylevels: [-6.1210 -5.5080 -3.8910  -3.7780  -3.749]
-degeneracies: [8 6 2 12 4]
-seniorities: [0 0 0 0 0 ] 
-interaction constant: -0.0001
-pairs: 8
-change : g
-""")
-  os.system('python writepairing.py -f %s -r k -x %f -y %f -z %f' %(fname , start  ,step ,end))
-  dirname = "%srun_%s_p%gl%g" %('RichRedBcs','k',8,5) 
-  dirname += fname
-  os.chdir(dirname)
-  
 def nucmain():
   name = 'Sn_116'
-  #create_output_file(name, -0.001 , -0.0001 , -0.4)
   nuc2 = [[-0.24625, -0.16486, -0.14600, -0.18328, -0.23380],
   [-0.16486, -0.23543, -0.19953, -0.36971, -0.22500],
   [-0.14600, -0.19953, -0.72440, -0.17412, -0.24855],
   [-0.18328, -0.36971, -0.17412, -0.17665, -0.17615],
   [-0.23380, -0.22500, -0.24855, -0.17615, -0.20315]] #the pairing Ham changes this matrix automatically to twofold degenerate levels
+  enl=  [-6.1210, -5.5080, -3.8910,  -3.7780 , -3.749] ; deg= [8, 6, 2, 12, 4] ; sen= [0, 0, 0, 0, 0 ] ; ap = 8
+  vrg.GoldVarRG(None).create_output_file(name,enl , deg, sen,ap, -0.001 , -0.0001 , -0.4)
   outputreader = dr.ReaderOutput('plotenergy.dat')
   nucham = General_Pairing_Ham(outputreader.elevels , outputreader.degeneracies, outputreader.seniorities , nuc2 , outputreader.npair)
   outputreader.elevels , outputreader.degeneracies , outputreader.seniorities, outputreader.npair  = nucham.get_rgeq_char()
@@ -236,22 +212,6 @@ def nucmain():
   pl.plot(x, elist)
   pl.savefig('%s.png' % name)
   
-def create_rgeq(elev ,deg, sen , g , ap, tda = 'strong'):
-  """
-  Help function to create rgeq for the test main 
-  """
-  rgeq = rg.RichRedBcs(elev,deg,sen,g,ap)
-  if tda == 'strong':
-    tdastartd = {0:ap }
-    rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None)
-    
-  elif tda == 'weak':
-    tdastartd = rgf.tdadict_kleinekoppeling(ap,deg,sen)
-    rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None)
-  else:
-    g = rgeq.g ; rgeq.g = 0.0001 ; tdastartd = rgf.tdadict_kleinekoppeling(ap,deg,sen)
-    energierg , rgeq =  wp.generating_datak(rgeq,tdastartd,'g',0.001,g,rgwrite = True ,tdafilebool = False,exname = '',moviede = False, intofmotion = False, printstep = 30 )       
-  return rgeq
 
 def chemmain(*args , **kwargs):
   #possible bases: ['STO-3G' , '3-21G' , '3-21++G*' , '6-31++G**', '6-31G**','6-31+G*' , 'ANO' ,'aug-cc-pVDZ', 'aug-cc-pVTZ', 'aug-cc-pVQZ', 'cc-pVDZ', 'cc-pVTZ', 'cc-pVQZ'  ]
@@ -266,7 +226,7 @@ def chemmain(*args , **kwargs):
   g = 0.0001 ; elist = []
   nlevel,deg = rgf.checkdegeneratie(elev ,list(deg))
   sen = nlevel* [0.]
-  rgeq = create_rgeq(elev,deg, sen , g , ap, tda = 'weak')
+  rgeq = vrg.VarSolver(None).create_rgeq(elev,deg, sen , g , ap, tda = 'weak')
   rgeq.energiel , rgeq.ontaardingen ,rgeq.senioriteit ,rgeq.alevel= rgf.uncheckdegeneratie(rgeq.energiel , rgeq.ontaardingen)
   with open('%s.dat' %name , 'w') as d:
     for g in [ 0.001 * i for i in range(1,201)]:
@@ -280,6 +240,4 @@ def chemmain(*args , **kwargs):
 
 if __name__ == "__main__":
   #chemmain()
-  #nucmain()
-
-
+  nucmain()

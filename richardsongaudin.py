@@ -37,9 +37,9 @@ class RichardsonEq(object):
     (XI = zero corresponds to the tda approximation, XI = one corresponds to the pairing problem that we need to solve)
     """
     self.xi = xi #just a random very small variable so that the near tda approxiamation works
-    self.energiel = array(sorted(energiel_))
-    self.ontaardingen = array(ontaard_)
-    self.senioriteit = array(senior_)
+    self.energiel = array(sorted(energiel_),float)
+    self.ontaardingen = array(ontaard_,float)
+    self.senioriteit = array(senior_,float)
     self.g = kop_
     self.apair = apair_
     self.alevel = len(self.energiel)
@@ -80,17 +80,10 @@ class RichardsonEq(object):
   def set_apair(self,ap):
     self.apair = ap
  
-  def getvar(self,var):
+  def getvar(self,var , i = 0):
     #handy to create general programs
-    askedvar =  getattr(self,var)
-    """
-    REMARK ERROR ERROR: for some reason I give only the real part back when it is a complex variable (please find out why I implemented it like this).
-    This gives problems with the circumvention of critical points so i commented it out (whatever the reason was solve it on a different way if you remember it again).
-    """
-    #if isinstance(askedvar , complex):
-    #  return askedvar.real
-    #else:
-    #  return askedvar
+    if var in ['energiel' , 'senioriteit' , 'ontaardingen']:
+      return getattr(self,var)[i]
     return  getattr(self,var)
 
   def get_solutions(self):
@@ -109,8 +102,14 @@ class RichardsonEq(object):
   def set_seniority(self,sen):
     self.senioriteit = array(sen)
   
-  def setvar(self,var,val):
-    setattr(self,var,val)
+  def setvar(self,var,val, i = 0):
+    #general setter for one variable number
+    if var == 'energiel':
+      self.energiel[i] = val 
+    elif var == 'ontaardingen':
+      self.ontaardingen[i] = val
+    else:
+      setattr(self,var,val)
     
   def test_goodsol(self):
     zerosd = self(self.rgsolutions) 
@@ -598,17 +597,16 @@ class RichardsonSolver(object):
     '''
     self.xisolutions = sorted(self.xisolutions , key = lambda opl : opl[0])
     fname = '%s%f%s.dat' % (fname,self.richeq.g,str(self.tda.tdadict).translate(None,' '))
-    xifile = open(fname ,'w')
-    dr.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
-    xfile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
-    if reverse:
-      sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
-    for opl in self.xisolutions:
-      xifile.write('%f\t%f\t' %(opl[0] , opl[1]))
-      for j in xrange(self.richeq.apair):
-        xifile.write('%f\t%f\t' %(opl[2][j].real, opl[2][j].imag ))
-      xifile.write('\n')
-    xifile.close()
+    with open(fname ,'w') as xifile:
+      dr.info_1set(xifile,str(self.richeq), exinfo = '#we change: xi\n',tdadict = self.tda.tdadict)
+      xifile.write('#Xi\tE' + self.richeq.apair*'\trgvar(real)\trgvar(imag)' + '\n')
+      if reverse:
+        sorted(self.xisolutions , key = lambda opl : opl[0] , reverse = reverse)
+      for opl in self.xisolutions:
+        xifile.write('%f\t%f\t' %(opl[0] , opl[1]))
+        for j in xrange(self.richeq.apair):
+          xifile.write('%f\t%f\t' %(opl[2][j].real, opl[2][j].imag ))
+        xifile.write('\n')
     
   def plotrgvarsxi(self, xiname = 'rgvarxipath' ,xlim= True, ylim = (-20,20)):
     '''
@@ -700,8 +698,9 @@ def maintest():
   more efficient is a huge timewinst. And making it more flexible will cause much better code
   '''
   #picket fence model
-  nlev = 16
+  nlev = 10
   eendlev = np.arange(1,nlev+1)
+  eendlev[6] = 20
   ontaardingen = np.ones(nlev,float)*2
   senioriteit = np.zeros(nlev,float)
   apair = nlev/2
@@ -714,7 +713,6 @@ def maintest():
   apair = 10
   g = -0.075
   '''
-  '''
   eta = 1.
   g = -0.0100
   #tdastartd = {0:0,1:2,2:0,3:0,4:1,5:0}
@@ -724,12 +722,14 @@ def maintest():
   #print ontaardingen,senioriteit,eendlev
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
   rgeq = RichRedBcs(eendlev,ontaardingen,senioriteit,g,apair)
+  rgeq.setvar('energiel' , -4 )
   a = RichardsonSolver(rgeq)
   rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
   print rgeq.intofmotion()
   tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
   print tdad 
-  '''
+  print rgeq
+  """
   #Dicke test
   g = -0.5
   apair = 5
@@ -740,12 +740,16 @@ def maintest():
   rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
   a.writexipath()
   a.plotrgvarsxi()
+  """
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)
   g = -1. ; apair = 6 ; eta = 1.
   rgeq = RichRedBcs(eendlev,ontaardingen,senioriteit,g,apair)
   d = rgeq.copy()
+  print d.getvar('energiel', 5)
+  d.setvar('energiel' , 100000 , 2)
+  print d.energiel
   d.xi = 4.
   print  rgeq.xi ,d.xi 
   d.rgsolutions = np.ones(6,float)

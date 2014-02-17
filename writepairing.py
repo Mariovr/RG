@@ -205,8 +205,9 @@ def generating_data(rgeq,nlevel,infilename,afh,step,end,wd2,pairingdict,afhxas,k
   plotenergyfile.close()
   ifile.close()
 
-def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True,tw= "w" , conarray = [], printstep = 30):
-  plotenergyfile = open("plotenergy%s.dat" %exname,tw) #opening of the file that's going to contain the results if you want to append data to existing file put howwrite = "a"
+def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True,tw= "w" , conarray = [], printstep = 30 , tofile = True , depvarindex = 0):
+  if tofile:
+    plotenergyfile = open("plotenergy%s.dat" %exname,tw) #opening of the file that's going to contain the results if you want to append data to existing file put howwrite = "a"
   olddir = os.getcwd() # remember the current directory, at the end of this routine we change back to the current dir so the final plots are contained in this dir
   if tdafilebool is True:
     tdafile = open('tdafile.dat','w')
@@ -214,7 +215,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     rgf.generate_dir(dirname,None) #we use the function from rgfunctions.py
   d = rgf.calculated(rgeq.energiel,rgeq.ontaardingen)  #Calculation of the mean distance between the used sp levels
   bb = rgf.calcnintgrondtoestand(rgeq) 
-  if tw == 'w': dr.info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is: %s \n#d:  %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
+  if tw == 'w' and tofile: dr.info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is: %s \n#d:  %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
   lastkp = False #boolean to know if the last g value circumvented a critical point
   #if rgeq.rgsolutions is None we haven't determined any rg variables so the first solution has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
@@ -223,17 +224,17 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingd,xival = xival)   
     energierg = rgeq.get_energy()
   rgeqsaveback = None
-  rgeq.solve()
-  while (rgeq.getvar(dvar) != end ):  
-    savergsolutions = np.copy(rgeq.rgsolutions) ; savedepvar = rgeq.getvar(dvar) #important if continuity check fails
-    rgeq.setvar(dvar,savedepvar + step)
-    if (rgeq.getvar(dvar)- abs(step)*0.8 < end and rgeq.getvar(dvar) + abs(step)*0.8 > end):
-      rgeq.setvar(dvar,end)    
-    if int(abs(savedepvar- end)/abs(step)) % printstep == 0 : print 'The variable we change: %s is: %s we end at: %f' %(dvar ,str(rgeq.getvar(dvar)), end) #print each 50 steps
+  while (rgeq.getvar(dvar, depvarindex) != end ):  
+    savergsolutions = np.copy(rgeq.rgsolutions) ; savedepvar = rgeq.getvar(dvar,  depvarindex) #important if continuity check fails
+    rgeq.setvar(dvar,savedepvar + step, i= depvarindex)
+    if (rgeq.getvar(dvar,  depvarindex)- abs(step)*0.8 < end and rgeq.getvar(dvar,  depvarindex) + abs(step)*0.8 > end):
+      rgeq.setvar(dvar,end,  depvarindex)    
+    if int(abs(savedepvar- end)/abs(step)) % printstep == 0 : print 'The variable we change: %s is: %s we end at: %f' %(dvar ,str(rgeq.getvar(dvar,  depvarindex)), end) #print each 50 steps
     try:
       energierg = rgeq.solve()
       if not rgf.continuity_check(conarray, rgeq,crit = 1.8,dvar = dvar):
-        plotenergyfile.write('#we arrived at a discontinuity\n')
+        if tofile:
+          plotenergyfile.write('#we arrived at a discontinuity\n')
         raise ValueError
     except (ValueError, np.linalg.linalg.LinAlgError) as e:
       """
@@ -243,13 +244,14 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
       n = 1 #integer that determines how many steps g need to increase to circumvent the critical point
       # if you use the generating_datak wrapper probeExitedStates make sure n = 1 because it takes the difference of exited states with the groundstate and
       #if the critical points of the exited state are different in contrast to those of the ground state then you'll have noisy graphs.
-      plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.getvar(dvar)))
+      if tofile:
+        plotenergyfile.write("# %s kritisch punt \n" %str(rgeq.getvar(dvar,  depvarindex)))
       savestep = step
-      send = savesend = rgeq.getvar(dvar) 
-      rgeq.setvar(dvar,rgeq.getvar(dvar) - step) ; rgeq.rgsolutions = savergsolutions  #go back to the rgeq where we know the solution
+      send = savesend = rgeq.getvar(dvar,  depvarindex) 
+      rgeq.setvar(dvar,rgeq.getvar(dvar,  depvarindex) - step,  depvarindex) ; rgeq.rgsolutions = savergsolutions  #go back to the rgeq where we know the solution
       complexstep = 10000 ; extremecp = False
       while lastkp == False:        
-        if (rgeq.getvar(dvar) - abs(step)*1.5 < end and rgeq.getvar(dvar) + abs(step) *1.5 > end):
+        if (rgeq.getvar(dvar,  depvarindex) - abs(step)*1.5 < end and rgeq.getvar(dvar,  depvarindex) + abs(step) *1.5 > end):
           send = end
           step /= 2.
         try:
@@ -261,7 +263,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
             send += step
             print rgeq
             energierg,rgeq,rgeqsaveback = rgf.littleLoop(conarray[-2],step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
-          elif abs(rgeqsaveback.getvar(dvar)-send)/abs(savestep)   > 4 and n < 100: 
+          elif abs(rgeqsaveback.getvar(dvar,  depvarindex)-send)/abs(savestep)   > 4 and n < 100: 
             energierg,rgeq,rgeqsaveback = rgf.littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
           else:
             if n < 310:
@@ -278,53 +280,56 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
             if n > 1000:
               print 'n is starting to get large: %g  maybe you should consider changing the parameters that determine the circumvention of critical points' % int(n)
           
-          rgeq.setvar(dvar, rgeq.getvar(dvar) + savestep - rgeq.getvar(dvar) % savestep) #To make sure that we solve the desired points of the independend variable
+          rgeq.setvar(dvar, rgeq.getvar(dvar,  depvarindex) + savestep - rgeq.getvar(dvar,  depvarindex) % savestep,  depvarindex) #To make sure that we solve the desired points of the independend variable
           rgeq.solve()
           if not rgf.continuity_check(conarray, rgeq,crit = 1.9 * n % 4 ,dvar = dvar):
             print'problems with continuity of the found solutions %s with the following richardsoneq %s' %(str(conarray),str(rgeq))
-            plotenergyfile.write('# discontinuity at %s  , with n = %g , send = %f , complexstep = %f , step = %f' %(str(rgeq.getvar(dvar)), n , send , complexstep , step))
+            if tofile:
+              plotenergyfile.write('# discontinuity at %s  , with n = %g , send = %f , complexstep = %f , step = %f' %(str(rgeq.getvar(dvar,  depvarindex)), n , send , complexstep , step))
             rgeq.rgsolutions = savergsolutions
-            rgeq.setvar(dvar,savedepvar) #go back to the rgeq where we know the solution
+            rgeq.setvar(dvar,savedepvar,  depvarindex) #go back to the rgeq where we know the solution
             raise ValueError
           lastkp = True
           step = savestep
         except (ValueError, np.linalg.linalg.LinAlgError) as e:
           n *= 4
-          if abs(rgeq.getvar(dvar)) > 1e-3:
+          if abs(rgeq.getvar(dvar,  depvarindex)) > 1e-3:
             if complexstep <= 4e5:
               complexstep *= 2. #how bigger complexstep how smaller step in complexspace
           else:
             complexstep /= 10.
-          print 'circumventing a critical point at %g steps and step in complexspace is %f , at %s = %f ' %(n, complexstep,dvar,rgeq.getvar(dvar))       
+          print 'circumventing a critical point at %g steps and step in complexspace is %f , at %s = %f ' %(n, complexstep,dvar,rgeq.getvar(dvar,  depvarindex))       
     finally:
       if tdafilebool is True:
         rgsolver = rg.RichardsonSolver(rgeq)
         try:
           pairingdict  =  rgsolver.main_desolve(xistep = -0.01,rgwrite = False, plotrgvarpath = moviede,plotepath = False)
           tdasol = rgsolver.get_tda(None) 
-          tdafile.write('%f\t%s\t%s\n'  %(rgeq.getvar(dvar),' '.join(map(str,pairingdict)), ' '.join(map(str,(tdasol)))))
+          tdafile.write('%f\t%s\t%s\n'  %(rgeq.getvar(dvar,  depvarindex),' '.join(map(str,pairingdict)), ' '.join(map(str,(tdasol)))))
         except (ValueError, np.linalg.linalg.LinAlgError,NameError , rg.XiError) as e:
           print 'problem in going back in xispace to xi = o to determine the corresponding tdadistribution'
-          tdafile.write('#%f\t%s\n'  %(rgeq.getvar(dvar),'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
-    plotenergyfile.write("%.12f\t%.12f\t%.12f" %(rgeq.getvar(dvar), energierg-bb, energierg)) 
-    if (rgeq.getvar(dvar)- abs(step)*0.8 < end and rgeq.getvar(dvar) + abs(step)*0.8 > end):
-      rgeq.setvar(dvar,end)    
-    if rgwrite is True:
-      for i in range(rgeq.apair):
-        plotenergyfile.write('\t%.12f' %( rgeq.rgsolutions[i].real ))
-        plotenergyfile.write('\t%.12f' %( rgeq.rgsolutions[i].imag ))
-    if intofmotion == True:
-      integralsofm = rgeq.intofmotion()
-      for i in range(rgeq.alevel):
-        plotenergyfile.write('\t%.12f' %(integralsofm[i].real))
-    plotenergyfile.write('\n')
+          tdafile.write('#%f\t%s\n'  %(rgeq.getvar(dvar,  depvarindex),'We couldn\'t find any solutions because their occured an error in desolving the Richardson-Gaudin solutions from XI =1 to XI = 0')) 
+    if tofile:
+      plotenergyfile.write("%.12f\t%.12f\t%.12f" %(rgeq.getvar(dvar,  depvarindex), energierg-bb, energierg)) 
+      if rgwrite is True:
+        for i in range(rgeq.apair):
+          plotenergyfile.write('\t%.12f' %( rgeq.rgsolutions[i].real ))
+          plotenergyfile.write('\t%.12f' %( rgeq.rgsolutions[i].imag ))
+      if intofmotion == True:
+        integralsofm = rgeq.intofmotion()
+        for i in range(rgeq.alevel):
+          plotenergyfile.write('\t%.12f' %(integralsofm[i].real))
+      plotenergyfile.write('\n')
     lastkp = False   ; extremecp = False
-    if rgeq.getvar(dvar) < end and np.sign(step) < 0 :
-      rgeq.setvar(dvar,end)
-    elif rgeq.getvar(dvar) > end and np.sign(step) > 0:
-      rgeq.setvar(dvar,end)
+    if (rgeq.getvar(dvar,  depvarindex)- abs(step)*0.8 < end and rgeq.getvar(dvar,  depvarindex) + abs(step)*0.8 > end):
+      rgeq.setvar(dvar,end,  depvarindex)    
+    if rgeq.getvar(dvar,  depvarindex) < end and np.sign(step) < 0 :#some extra checks for the paranoid
+      rgeq.setvar(dvar,end,  depvarindex)
+    elif rgeq.getvar(dvar,  depvarindex) > end and np.sign(step) > 0:
+      rgeq.setvar(dvar,end,  depvarindex)
   #end calculation underneath is just some cleaning up and closing files  
-  plotenergyfile.close()  
+  if tofile:
+    plotenergyfile.close()  
   if tdafilebool is True:
     tdafile.close()
     if moviede is True:
