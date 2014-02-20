@@ -18,7 +18,10 @@ import writepairing as wp
 
 import os
 from math import log , sqrt
-from numpy import identity,array,dot,zeros,argmax , append
+from numpy import identity,array,dot,zeros,argmax , append , arange
+from numpy.linalg.linalg import LinAlgError
+import pylab as pl
+from scipy.optimize import fmin_bfgs , fmin_cg
 
 class VarSolver(object):
   """
@@ -34,15 +37,15 @@ class VarSolver(object):
   def update_rgeq(self,rgeq):
     self.rgcor.set_rgeq(rgeq, calc_2rdm = True)
   
-  def fine_tune(self ,rgeq , val, afhvar = 'g' , tol = 1e-6 , tofile = False):
+  def fine_tune(self ,rgeq , val, afhvar = 'g'  ,depvarindex = 0 ,tol = 1e-6 , tofile = False):
     if rgeq.getvar(afhvar) >= val:
       tol *= -1.
     else:
       pass
-    energierg , rgeq =  wp.generating_datak(rgeq,None,afhvar,tol,val,rgwrite = True ,tdafilebool = False,exname = 'finetune',moviede = False, intofmotion = False, printstep = 30 , tofile = tofile)       
+    energierg , rgeq =  wp.generating_datak(rgeq,None,afhvar,tol,val,rgwrite = True ,tdafilebool = False,exname = 'finetune',moviede = False, intofmotion = False, printstep = 30 , tofile = tofile, depvarindex = depvarindex)       
     return rgeq
 
-  def create_rgeq(self, elev ,deg, sen , g , ap, tda = 'strong'):
+  def create_rgeq(self, elev ,deg, sen , g , ap, tda = 'strong' , start = 0.0001, step = 0.001 , tofile = False , name = 'var'):
     """
     Function that creates an rgeq (RichRedBcs) 
     """
@@ -58,30 +61,31 @@ class VarSolver(object):
       tdastartd = rgf.tdadict_kleinekoppeling(ap,deg,sen)
       rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None)
     else:
-      g = rgeq.g ; rgeq.g = 0.0001 ; tdastartd = rgf.tdadict_kleinekoppeling(ap,deg,sen)
-      energierg , rgeq =  wp.generating_datak(rgeq,tdastartd,'g',0.001,g,rgwrite = True ,tdafilebool = False,exname = '',moviede = False, intofmotion = False, printstep = 30 )       
+      g = rgeq.g ; rgeq.g = start ; tdastartd = rgf.tdadict_kleinekoppeling(ap,deg,sen)
+      energierg , rgeq =  wp.generating_datak(rgeq,tdastartd,'g',step,g,rgwrite = True ,tdafilebool = False,exname = name,moviede = False, intofmotion = False, printstep = 30, tofile = True)       
     return rgeq
 
 class GoldVarRG(VarSolver):
-  def __init__(self, ham , g = -0.001 ,step = -0.001 , end = -0.4 , outputfile = True , nameoutput = 'varcal'):
+  def __init__(self, ham , g = -0.001 ,step = -0.001 , end = -0.4 , outputfile = True, name = 'var'  ):
     """
     Variational RG solver for the interaction constant g with a golden search method.
     """
     super(GoldVarRG,self).__init__(ham )
     elev , deg,sen,ap = self.ham.get_rgeq_char() 
     if not outputfile:
-      self.create_output_file(nameoutput, elev , deg , sen,ap , g, step ,  end)
-    self.create_reader(name = 'plotenergy.dat')
+      self.create_output_file(elev , deg , sen,ap , g, step ,end, name = name)
+    self.create_reader(name = 'plotenergy%s.dat' %name)
+    self.rgcor.rgeq = self.outpr.make_rgeq()
 
-  def g_opt(self,g, var = 'g', tol = 1e-6):
-    self.outpr.readrgvars(afhvar = g , linenr = None ,step = 0.001, startrg =3) 
+  def g_opt(self,g, var = 'g', tol = 1e-6 , fileac = 0.001):
+    self.outpr.readrgvars(afhvar = g , linenr = None ,step = fileac, startrg =3)  #step determines the accuracy
     rgeq = self.outpr.make_rgeq()
     if tol != None:
       rgeq = self.fine_tune(rgeq , g, afhvar = var , tol = tol)
     self.rgcor.set_rgeq(rgeq, calc_2rdm = True)
     return self.ham.calc_energy(self.rgcor)
  
-  def create_output_file(self , name, elev , deg , sen, ap ,start , step ,  end):
+  def create_output_file(self , elev , deg , sen, ap ,start , step ,  end , name = 'var'):
     """
     Help function for the nucleon() test hereunder, it generates some RG variables for a desired range of the interaction variable
     in a file called 'plotenergy.dat', together with some plots, and at the end it changes to the directory where all the output is saved.
@@ -89,20 +93,7 @@ class GoldVarRG(VarSolver):
     elev = list(elev)
     nlevel,deg = rgf.checkdegeneratie(elev ,list(deg))
     sen = nlevel* [0.]
-    fname = 'input%s.dat' %name
-    with open(fname, 'w') as inputfile:
-      inputfile.write("""RichardsonEq : RichRedBcs
-energylevels: %s
-degeneracies: %s
-seniorities: %s 
-interaction constant: %f
-pairs: %g
-change : g
-""" %(str(elev).translate(None,',\n'),str(deg).translate(None,',\n'),str(sen).translate(None,',\n') , start ,ap) )
-    os.system('python writepairing.py -f %s -r k -x %f -y %f -z %f' %(fname , start  ,step ,end))
-    dirname = "%srun_%s_p%gl%g" %('RichRedBcs','k',ap,len(elev)) 
-    dirname += fname
-    os.chdir(dirname)
+    self.create_rgeq(elev ,deg, sen , end , ap, tda = None , start = start, step = step , tofile = True, name = name)
 
   def create_reader(self, name = 'plotenergy.dat'):
     self.outpr = dr.ReaderOutput(name)
@@ -165,16 +156,28 @@ change : g
     print '------------------------------'
     return xmin , fmin
 
-  #REMARK everything hereunder is still very experimental
-  def eopt(self,elevg):
-    self.rgcor.rgeq.set_energiel(elevg[0:-1])
-    self.rgcor.rgeq.g = elevg[-1]
-    self.rgcor.re_calc(calc_2rdm = True)
+  #REMARK everything underneath is still very experimental
+  def eopt(self,elevg ,start = 0.00001 , step = 0.001, index = 0):
+    rgeq =  self.rgcor.rgeq.copy()
+    rgeq.set_energiel(elevg[0:-1])
+    rgeq.g = elevg[-1]
+    try:
+      rgeq.solve()
+    except (ValueError, LinAlgError) as e:
+      #rgeq = self.fine_tune(self.rgcor.rgeq , val, afhvar = 'g' , tol = 1e-4 , tofile = False)
+       
+      rgeq = self.create_rgeq(elevg[:-1] ,rgeq.ontaardingen, rgeq.senioriteit , elevg[-1] , rgeq.apair, tda = 'weak' , start = start, step = step)
+      rgeq.energiel , rgeq.ontaardingen ,rgeq.senioriteit ,rgeq.alevel= rgf.uncheckdegeneratie(rgeq.energiel , rgeq.ontaardingen)
+    self.rgcor.set_rgeq(rgeq,calc_2rdm = True)
+    #print self.ham.calc_energy(self.rgcor)
     return self.ham.calc_energy(self.rgcor)
 
-  def optimize(self, start = -0.001, width = -0.1, tol = 1.0e-5, filestep = 0.001, h = 0.001):
+  def optimize(self, start = -0.001, width = -0.1, tol = 1.0e-5, filestep = 0.001, h = 0.002):
     self.run(start = start ,width = width ,  tol = tol , filestep = filestep)
-    return self.powell(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g), h =h)
+    #xmin = self.powell(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g), h =h)
+    xmin = fmin_bfgs(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) )
+    #xmin = fmin_cg(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) )
+    return self.eopt(xmin)
 
   def powell(self,F,x,h=0.001,tol=1.0e-2):
     """xMin,nCyc = powell(F,x,h=0.1,tol=1.0e-6)
@@ -182,18 +185,19 @@ change : g
     x= starting point, h= initial search increment used in bracket
     xMin = mimimum point, nCyc = number of cycles
     """
-    def f(s,tol =None): return F(x + s*v) # F in direction of v
+    def f(s,tol =None ): return F(x + s*v) # F in direction of v
     n = len(x) # Number of design variables
     df = zeros((n)) # Decreases of F stored here
     u = identity(n)*1.0 # Vectors v stored here by rows
-    for j in range(30): # Allow for 30 cycles:
+    for j in range(30): # 30 cycles:
+      print 'optimizing with the powell method, cycle: %g' %j
       xOld = x.copy()
       # Save starting point
       fOld = F(xOld)
       # First n line searches record decreases of F
       for i in range(n):
         v = u[i]
-        a,b = self.bracket(f,0.0,h)
+        a,b = self.bracket(f,0.0 ,h)
         s,fMin = self.search(f,a,b)
         df[i] = fOld - fMin
         fOld = fMin
@@ -210,12 +214,33 @@ change : g
         u[i] = u[i+1]
         u[n-1] = v
     print 'Powell did not converge'
+    return x 
+
+def h2dis():
+  sol = []
+  with open('h2dis2.dat' , 'w') as f:
+    for dis in arange(1,4,0.05):
+      chemham = vh.Chem_Ham(filename = None ,atoms = [1,1], positions = [ [dis,0,0],[0.,0,0]],  basis ='aug-cc-pVDZ') #3-21G
+      grgvar = GoldVarRG(chemham,g = 0.0001, step = 0.0002 , end = 0.5, outputfile =False )
+      xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.02,  tol = 1e-2, filestep =0.0002, h = +0.002)
+      #xmin , fmin = grgvar.run(start = 0.0021 , width = 0.05 , tol = 1.0e-4, filestep = 0.0002)
+      sol.append(fmin)
+      print '----------------------'
+      print 'at distance : %f' %dis
+      print 'the optimal variational values are for xmin and fmin: ' ,xmin , fmin
+      print '----------------------'
+      f.write('%f\t%f\n' %(dis , fmin))
+  pl.plot(arange(1,4,0.05) , sol)
+  pl.show()
+  pl.savefig('h2dis2.png')
+
 
 def main2():
-  chemham = vh.Chem_Ham(filename = None ,atoms = [1,1], positions = [[0,0,0], [1.,0,0]],  basis =  '3-21G') #3-21G
-  grgvar = GoldVarRG(chemham,g = 0.0001, step = 0.0002 , end = 0.8, outputfile = False, nameoutput = 'varcal')
-  #grgvar.run(start = -0.003 , width = 0.05 , tol = 1.0e-7, filestep = 0.0002)
-  xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.1,  tol = 1e-5, filestep =0.0002, h = 0.0001)
+  #chemham = vh.Chem_Ham(filename = None ,atoms = [1,1], positions = [[0,0,0], [1.,0,0]],  basis =  '3-21G') #3-21G
+  chemham = vh.Chem_Ham(filename = None ,atoms = [10], positions = [ [0.,0,0]],  basis ='3-21G') #3-21G
+  grgvar = GoldVarRG(chemham,g = 0.0001, step = 0.0002 , end = 0.8, outputfile =False)
+  #grgvar.run(start = 0.0001 , width = 0.05 , tol = 1.0e-7, filestep = 0.0002)
+  xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.03,  tol = 1e-3, filestep =0.0002, h = 0.2)
   print xmin , fmin
 
 def main(*args , **kwargs):
@@ -232,6 +257,7 @@ def main(*args , **kwargs):
   print xmin , fmin
 
 if __name__ == "__main__":
+  #h2dis()
   #main()
   main2()
 

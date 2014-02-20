@@ -207,6 +207,7 @@ def generating_data(rgeq,nlevel,infilename,afh,step,end,wd2,pairingdict,afhxas,k
 
 def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True,tw= "w" , conarray = [], printstep = 30 , tofile = True , depvarindex = 0):
   if tofile:
+    print exname
     plotenergyfile = open("plotenergy%s.dat" %exname,tw) #opening of the file that's going to contain the results if you want to append data to existing file put howwrite = "a"
   olddir = os.getcwd() # remember the current directory, at the end of this routine we change back to the current dir so the final plots are contained in this dir
   if tdafilebool is True:

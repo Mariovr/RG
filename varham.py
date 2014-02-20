@@ -158,7 +158,7 @@ class General_Pairing_Ham(Hamiltonian):
         if i != j:
           som += self.gij[i,j] *rgcor.get_element_2rdm(i,i,j,j)
       som += self.gij[i,i] *rgcor.get_element_2rdm(i,i,i,i)
-    print 'The energy = %f' %som
+    #print 'The energy = %f' %som
     return som
 
   def get_2p_integrals(self):
@@ -212,7 +212,6 @@ def nucmain():
   pl.plot(x, elist)
   pl.savefig('%s.png' % name)
   
-
 def chemmain(*args , **kwargs):
   #possible bases: ['STO-3G' , '3-21G' , '3-21++G*' , '6-31++G**', '6-31G**','6-31+G*' , 'ANO' ,'aug-cc-pVDZ', 'aug-cc-pVTZ', 'aug-cc-pVQZ', 'cc-pVDZ', 'cc-pVTZ', 'cc-pVQZ'  ]
   #to add other bases download from 
@@ -238,6 +237,17 @@ def chemmain(*args , **kwargs):
   pl.plot([ 0.001 * i for i in range(1,201)], elist)
   pl.savefig('%s.png' % name)
 
+def calc():
+  chemham = Chem_Ham(filename = None ,atoms = [10], positions = [[0,0,0]],  basis = '3-21G') #3-21G
+  ehf = chemham.horton_ham.system.extra['energy']
+  #efci =-14.5314443939 #Be fci 3-21G
+  efci = -127.9189885238 #get this from gaussian fci ne3-21G
+  #efciaugpvdz = -14.618287
+  myres = -127.822777
+  corp = (ehf -myres)/(  ehf - efci)
+  print corp
+
 if __name__ == "__main__":
+  calc()
   #chemmain()
-  nucmain()
+  #nucmain()

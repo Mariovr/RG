@@ -10,8 +10,9 @@
 #! /usr/bin/env python 
 
 ## module powell
-from numpy import identity,array,dot,zeros,argmax
+from numpy import identity,array,dot,zeros,argmax , asarray
 from math import sqrt , log
+from scipy.optimize import fmin_bfgs , fmin_cg
 
 def bracket(f,x1,h):
   """ 
@@ -96,6 +97,26 @@ def powell(F,x,h=0.1,tol=1.0e-6):
       u[n-1] = v
   print 'Powell did not converge'
 
+def f(x, *args):
+    u, v = x
+    a, b, c, d, e, f = args
+    return a*u**2 + b*u*v + c*v**2 + d*u + e*v + f
+def gradf(x, *args):
+    u, v = x
+    a, b, c, d, e, f = args
+    gu = 2*a*u + b*v + d     # u-component of the gradient
+    gv = b*u + 2*c*v + e     # v-component of the gradient
+    return asarray((gu, gv))
+
+def main2():
+  """test for the scipy optimization functions"""
+  args = (2, 3, 7, 8, 9, 10)  # parameter values
+  x0 = asarray((0, 0))  # Initial guess.
+  from scipy import optimize
+  res1 = optimize.fmin_cg(f, x0,  args=args)
+  #res1 = optimize.fmin_bfgs(f, x0,  args=args)
+  print 'res1 = ', res1
+
 def main(*args , **kwargs):
   def F(x): return 100*(x[1] - x[0]**2)**2+ (1-x[0])**2
   xstart = array([-1,1])
@@ -105,5 +126,5 @@ def main(*args , **kwargs):
   print F(xmin)
 
 if __name__ == "__main__":
-  main()
+  main2()
 

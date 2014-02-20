@@ -39,8 +39,8 @@ class CorrelationFunction(object):
     self.rgeq = rgeq
     self.re_calc(calc_2rdm)
 
-  def re_calc(self, calc_2rdm = True):
-    self.rgeq.solve() #check that the Richardson-Gaudin variables are already defined and if something else is set recalc the RG vars
+  def re_calc(self, calc_2rdm = True ):
+    #self.rgeq.solve() #check that the Richardson-Gaudin variables are already defined and if something else is set recalc the RG vars, not necessary because we command that a CoorrelationFunction calculator has a rgeq with a proper solution.
     self.gaudinmatrix = self.get_matrix(self.rgeq.apair, self.gaudinfunction)
     self.norm = self.get_norm()
     self.rdm1 = self.get_1rdm()
