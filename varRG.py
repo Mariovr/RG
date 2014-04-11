@@ -17,11 +17,12 @@ import correlationfaribault as cf
 import writepairing as wp
 
 import os
+import time
 from math import log , sqrt
 from numpy import identity,array,dot,zeros,argmax , append , arange
 from numpy.linalg.linalg import LinAlgError
 import pylab as pl
-from scipy.optimize import fmin_bfgs , fmin_cg
+from scipy.optimize import fmin_bfgs , fmin_cg # from version 0.11 , minimize
 
 class VarSolver(object):
   """
@@ -45,7 +46,7 @@ class VarSolver(object):
     energierg , rgeq =  wp.generating_datak(rgeq,None,afhvar,tol,val,rgwrite = True ,tdafilebool = False,exname = 'finetune',moviede = False, intofmotion = False, printstep = 30 , tofile = tofile, depvarindex = depvarindex)       
     return rgeq
 
-  def create_rgeq(self, elev ,deg, sen , g , ap, tda = 'strong' , start = 0.0001, step = 0.001 , tofile = False , name = 'var'):
+  def create_rgeq(self, elev ,deg, sen , g , ap, tda = 'strong' , start = 0.01, step = 0.001 , tofile = False , name = 'var'):
     """
     Function that creates an rgeq (RichRedBcs) 
     """
@@ -149,12 +150,28 @@ class GoldVarRG(VarSolver):
     else: return x2,f2
   
   def run(self ,afhvar = 'g' , start= -0.001  ,width = -0.1 , tol = 1.0e-6, filestep = 0.001):
-    a,b = self.bracket(self.g_opt ,start, width) # determines an interval that contains a minimum (warning this could be a local minimum)
+    try:
+      a,b = self.bracket(self.g_opt ,start, width) # determines an interval that contains a minimum (warning this could be a local minimum)
+    except:
+      a,b = 0.00001 , 0.5
     xmin , fmin = self.search(self.g_opt , a,b , tol = tol, filestep = filestep)
     print '------------------------------'
     print 'variational minimum: ', fmin , 'at: ', xmin
     print '------------------------------'
     return xmin , fmin
+
+  def scf_hf_rg(self ,startg , width , tol , filestep ,  threshold = 1e-7 , maxiter = 128):
+    count = 0 ; xmold = -100000 ; diff = 10
+    while diff > threshold and count < maxiter:
+      xm , fm = self.run(afhvar = 'g' , start= startg ,width = width , tol = tol, filestep = filestep)
+      self.ham.set_1rdm_rgeq(self.rgcor)
+      self.ham.reset_int()
+      dif = abs(xm - xmold)
+      xmold = xm
+      count +=1 
+    if count == maxiter:
+      print 'WE DIDNT CONVERGE -> DUBIOUS RESULTS'
+    return xm , fm
 
   #REMARK everything underneath is still very experimental
   def eopt(self,elevg ,start = 0.00001 , step = 0.001, index = 0):
@@ -164,20 +181,24 @@ class GoldVarRG(VarSolver):
     try:
       rgeq.solve()
     except (ValueError, LinAlgError) as e:
-      #rgeq = self.fine_tune(self.rgcor.rgeq , val, afhvar = 'g' , tol = 1e-4 , tofile = False)
-       
-      rgeq = self.create_rgeq(elevg[:-1] ,rgeq.ontaardingen, rgeq.senioriteit , elevg[-1] , rgeq.apair, tda = 'weak' , start = start, step = step)
+      try:
+        rgeq = self.create_rgeq(elevg[:-1] ,rgeq.ontaardingen, rgeq.senioriteit , elevg[-1] , rgeq.apair, tda = 'weak' , start = start, step = step)
+      except (rg.XiError, ValueError , LinAlgError) as ee:
+        #rgeq = self.fine_tune(self.rgcor.rgeq.copy() , val, afhvar = 'g' , tol = 1e-4 , tofile = False)
+        rgeq = self.create_rgeq(elevg[:-1] ,rgeq.ontaardingen, rgeq.senioriteit , elevg[-1] , rgeq.apair, tda = None , start = start, step = step)
       rgeq.energiel , rgeq.ontaardingen ,rgeq.senioriteit ,rgeq.alevel= rgf.uncheckdegeneratie(rgeq.energiel , rgeq.ontaardingen)
     self.rgcor.set_rgeq(rgeq,calc_2rdm = True)
+    if int(time.time()) % 10 == 0: 
+      print self.rgcor.rdm1
     #print self.ham.calc_energy(self.rgcor)
     return self.ham.calc_energy(self.rgcor)
 
-  def optimize(self, start = -0.001, width = -0.1, tol = 1.0e-5, filestep = 0.001, h = 0.002):
+  def optimize(self, start = -0.001, width = -0.01, tol = 1.0e-5, filestep = 0.001, h = 0.002):
     self.run(start = start ,width = width ,  tol = tol , filestep = filestep)
     #xmin = self.powell(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g), h =h)
-    xmin = fmin_bfgs(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) )
-    #xmin = fmin_cg(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) )
-    return self.eopt(xmin)
+    xmin = fmin_bfgs(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) ,gtol = 1.0e-4 , epsilon = 1.0e-6, maxiter = 100)
+    #xmin = minimize(self.eopt, append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) , args=(), method='Newton-CG', jac=None, hess=None, hessp=None, bounds=None, constraints=(), tol= 1e-5, callback=None, options=None) # method is one of: Nelder-Mead Powell CG BFGS Newton-CG Anneal L-BFGS-B TNC COBYLA SLSQP  dogleg  trust-ncg
+    return xmin ,  self.eopt(xmin) 
 
   def powell(self,F,x,h=0.001,tol=1.0e-2):
     """xMin,nCyc = powell(F,x,h=0.1,tol=1.0e-6)
@@ -217,31 +238,36 @@ class GoldVarRG(VarSolver):
     return x 
 
 def h2dis():
-  sol = []
-  with open('h2dis2.dat' , 'w') as f:
-    for dis in arange(1,4,0.05):
-      chemham = vh.Chem_Ham(filename = None ,atoms = [1,1], positions = [ [dis,0,0],[0.,0,0]],  basis ='aug-cc-pVDZ') #3-21G
-      grgvar = GoldVarRG(chemham,g = 0.0001, step = 0.0002 , end = 0.5, outputfile =False )
-      xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.02,  tol = 1e-2, filestep =0.0002, h = +0.002)
+  sol = [] ; basis = '3-21G'
+  chemham = vh.Chem_Ham(filename = None ,atoms = [1], positions = [ [0.,0,0]],  basis = basis) #3-21G
+  e_h_basis = chemham.horton_ham.system.extra['energy'] *2 #calculate the energy of 2 H atoms in the choosen basis
+  with open('h2dis%sSCF.dat'%basis , 'w') as f:
+    for dis in arange(1.4,1.41,0.01):
+      chemham = vh.Chem_Ham(filename = None ,atoms = [1,1], positions = [ [dis,0,0],[0.,0,0]],  basis = basis) #3-21G
+      #fmin = chemham.horton_ham.system.extra['energy']  ; xmin = None #calculate the energy of 2 H atoms in the choosen basis
+      grgvar = GoldVarRG(chemham,g = 0.0001, step = 0.0002 , end = 1., outputfile =False )
+      #xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.01,  tol = 1e-2, filestep =0.0002, h = 0.02)
       #xmin , fmin = grgvar.run(start = 0.0021 , width = 0.05 , tol = 1.0e-4, filestep = 0.0002)
+      xmin , fmin = grgvar.scf_hf_rg(0.0021 , 0.05, 1.0e-4 , 0.0002 ,  threshold = 1e-7 , maxiter = 20)
       sol.append(fmin)
       print '----------------------'
       print 'at distance : %f' %dis
       print 'the optimal variational values are for xmin and fmin: ' ,xmin , fmin
       print '----------------------'
-      f.write('%f\t%f\n' %(dis , fmin))
+      f.write('%f\t%f\t%f\n' %(dis , fmin, fmin - e_h_basis ))
   pl.plot(arange(1,4,0.05) , sol)
   pl.show()
-  pl.savefig('h2dis2.png')
+  pl.savefig('h2dis631.png')
+  pl.close()
 
 
 def main2():
   #chemham = vh.Chem_Ham(filename = None ,atoms = [1,1], positions = [[0,0,0], [1.,0,0]],  basis =  '3-21G') #3-21G
-  chemham = vh.Chem_Ham(filename = None ,atoms = [10], positions = [ [0.,0,0]],  basis ='3-21G') #3-21G
+  chemham = vh.Chem_Ham(filename = None ,atoms = [10], positions = [ [0.,0,0]],  basis ='cc-pVDZ') #3-21G
   grgvar = GoldVarRG(chemham,g = 0.0001, step = 0.0002 , end = 0.8, outputfile =False)
   #grgvar.run(start = 0.0001 , width = 0.05 , tol = 1.0e-7, filestep = 0.0002)
   xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.03,  tol = 1e-3, filestep =0.0002, h = 0.2)
-  print xmin , fmin
+  print xmin , fmin , grgvar.rgcor.rdm1
 
 def main(*args , **kwargs):
   nuc2 = [[-0.24625, -0.16486, -0.14600, -0.18328, -0.23380],
@@ -251,13 +277,19 @@ def main(*args , **kwargs):
   [-0.23380, -0.22500, -0.24855, -0.17615, -0.20315]] #the pairing Ham changes this matrix automatically to twofold degenerate levels
   enl=  [-6.1210, -5.5080, -3.8910,  -3.7780 , -3.749] ; deg= [8, 6, 2, 12, 4] ; sen= [0, 0, 0, 0, 0 ] ; ap = 8
   nucham = vh.General_Pairing_Ham(enl , deg, sen, nuc2 , ap)
-  grgvar = GoldVarRG(nucham, step = -0.001 , end = -0.6 , outputfile = True)
+  grgvar = GoldVarRG(nucham, step = -0.001 , end = -0.6 , outputfile = False)
   #xmin , fmin = grgvar.run(width = -0.1, tol = 1e-6, filestep = 0.001)
   xmin , fmin = grgvar.optimize()
   print xmin , fmin
 
+def test():
+  chemham = vh.Chem_Ham(filename = None ,atoms = [1], positions = [ [0.,0,0]],  basis ='3-21G') #3-21G
+  print chemham.get_2p_integrals() , chemham.get_1p_integrals()
+  print chemham.horton_ham.system.extra['energy'] *2
+
 if __name__ == "__main__":
+  #test()
   #h2dis()
   #main()
-  main2()
+  main2() 
 

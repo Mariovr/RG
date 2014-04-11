@@ -700,7 +700,6 @@ def maintest():
   #picket fence model
   nlev = 10
   eendlev = np.arange(1,nlev+1)
-  eendlev[6] = 20
   ontaardingen = np.ones(nlev,float)*2
   senioriteit = np.zeros(nlev,float)
   apair = nlev/2
@@ -714,21 +713,21 @@ def maintest():
   g = -0.075
   '''
   eta = 1.
-  g = -0.0100
+  g = -1. ; eta =1.
   #tdastartd = {0:0,1:2,2:0,3:0,4:1,5:0}
   tdastartd = {0:apair }
-  tdastartd = rgf.tdadict_kleinekoppeling(apair,ontaardingen,senioriteit)
+  #tdastartd = rgf.tdadict_kleinekoppeling(apair,ontaardingen,senioriteit)
   alevel = len(eendlev)
   #print ontaardingen,senioriteit,eendlev
   assert(len(ontaardingen) == len(eendlev) and len(ontaardingen) == len(senioriteit))
-  rgeq = RichRedBcs(eendlev,ontaardingen,senioriteit,g,apair)
-  rgeq.setvar('energiel' , -4 )
+  rgeq = RichFacInt(eendlev,ontaardingen,senioriteit,g,eta,apair)
   a = RichardsonSolver(rgeq)
   rgeq = a.main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = True,plotrgvarpath = True , plotepath = True,xlim = None , ylim = None)
-  print rgeq.intofmotion()
-  tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
-  print tdad 
   print rgeq
+  print calc_energy_with_int(rgeq) + casimir(rgeq) #test for the calculation of the integrals of motion.
+  print rgeq.energy
+  assert(round(calc_energy_with_int(rgeq).real+ casimir(rgeq).real -rgeq.energy, 7) == 0 ), 'problem with the calculation of the integrals of motion'
+  #tdad  = a.main_desolve(xistep = -0.01,rgwrite =False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None,xiend = 0.)
   """
   #Dicke test
   g = -0.5
@@ -741,6 +740,23 @@ def maintest():
   a.writexipath()
   a.plotrgvarsxi()
   """
+
+def casimir(rgeq):
+  d = ( 1./4.*rgeq.ontaardingen -rgeq.senioriteit *1./2.)
+  som =rgeq.energiel * rgeq.energiel * d *(d+1)
+  som = rgeq.g*sum(som)
+  return som
+  
+def calc_energy_with_int(rgeq):
+  som = 0
+  for i in range(len(rgeq.intofmotion())):
+    som += rgeq.intofmotion()[i] * rgeq.energiel[i]**2
+  som *= lambda2(rgeq.eta , rgeq.g , rgeq.apair , rgeq.alevel)[0]
+  return som
+
+def lambda2(eta,g , apair, L):
+  gamma = -1./2. * 1./(eta/g +(1-apair) +L/2.)
+  return 1./(1+2*gamma *(1-apair)+gamma *(L)) , gamma
 
 def test_copy():
   eendlev = np.arange(1,13) ; ontaardingen = np.ones(12,float)*2 ; senioriteit = np.zeros(12,float)

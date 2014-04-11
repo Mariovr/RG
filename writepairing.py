@@ -262,7 +262,6 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
             step += savestep/4.
           if rgeqsaveback == None:
             send += step
-            print rgeq
             energierg,rgeq,rgeqsaveback = rgf.littleLoop(conarray[-2],step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
           elif abs(rgeqsaveback.getvar(dvar,  depvarindex)-send)/abs(savestep)   > 4 and n < 100: 
             energierg,rgeq,rgeqsaveback = rgf.littleLoop(rgeq,step/2.,n*2,complexstepd = complexstep,end = send,dvar = dvar)
@@ -299,6 +298,8 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
               complexstep *= 2. #how bigger complexstep how smaller step in complexspace
           else:
             complexstep /= 10.
+            if complexstep < 100:
+              complexstepd = 1e6
           print 'circumventing a critical point at %g steps and step in complexspace is %f , at %s = %f ' %(n, complexstep,dvar,rgeq.getvar(dvar,  depvarindex))       
     finally:
       if tdafilebool is True:
@@ -403,8 +404,8 @@ def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf , intm = True):
   Calculates all the eigenvalues of the pairingsHamiltonian at positive or negative interaction constant.
   If you want both write a wrapper or use the wrappermainsfile ;). 
   '''
-  #tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
-  tdacombinations = get_facgap(rgeq.apair,rgeq.alevel)
+  tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
+  #tdacombinations = get_facgap(rgeq.apair,rgeq.alevel)
   tdacor = open('tdacor.dat','w')
   tdacor.write('#This file contains the correspondence between the directories and the start tda distributions \n#The first column is the directory number and on the same line is the tda start distribution written \n')
   i = 0 #the i parameter makes it easy to restart after a failure just but i in the condition bigger as the i at failure

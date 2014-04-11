@@ -68,6 +68,9 @@ class Chem_Ham(Hamiltoniaan):
     som += self.nucnuc
     print 'The energy = %f' %som
     return som
+
+  def reset_int(self):
+    self.eint , self.eri   = self.transforms()
   
   def get_2p_integrals(self):
     return self.eri
@@ -119,25 +122,59 @@ class Chem_Ham(Hamiltoniaan):
   def get_overlap():
     return self.horton_ham.system.get_overlap()._array
 
-  def create_densematrices(self ,corrgeq):
-    #Create dense matrices (to work with horton) from 1rdm and 2rdm matrices from a Richardson-Gaudin ground state
-    dtwb = DenseTwoBody(corrgeq.rgeq.alevel)
+  def create_dense_one_body(self ,corrgeq):
+    #Create dense matrices (to work with horton) from 1rdm matrices of a Richardson-Gaudin ground state
     dob = DenseOneBody(corrgeq.rgeq.alevel)
-
     for i in range(corrgeq.rgeq.alevel): 
-      dob.set_element(i,i,rgeqdm.rdm1[i])
+      dob.set_element(i,i,corrgeq.rdm1[i])
+    dob.check_symmetry()
+    return dob
+
+  def create_dense_two_body(self,corrgeq):
+    #Create dense matrices (to work with horton) from 2rdm matrices of a Richardson-Gaudin ground state
+    dtwb = DenseTwoBody(corrgeq.rgeq.alevel)
     for i in range(corrgeq.rgeq.alevel): 
       for j in range(i,corrgeq.rgeq.alevel): 
         for k in range(j,corrgeq.rgeq.alevel): 
           for l in range(k,corrgeq.rgeq.alevel): 
-            dtwb.set_element(i,j, k , l,rgeqdm.get_element_2rdm(i,j,k,l))
+            dtwb.set_element(i,j, k , l,corrgeq.get_element_2rdm(i,j,k,l))
     dtwb.check_symmetry()
-    dob.check_symmetry()
-    return dob, dtwb
+    return dtwb
+
+  def set_1rdm_rgeq(self , corrgeq , maxiter = 128 , threshold = 1e-8):
+    dmrgeq = self.create_dense_one_body(corrgeq)
+    lf = self.horton_ham.system.lf
+    wfn = self.horton_ham.system.wfn
+    overlap = self.horton_ham.system.get_overlap()
+    fock = lf.create_one_body()
+    self.horton_ham.compute_fock(fock, None)
+    wfn.clear()
+    wfn.update_exp(fock, overlap,dm_alpha = dmrgeq)
+    #converged = False
+    #counter = 0
+    #while counter < maxiter:
+    #  # Construct the Fock operator
+    #  fock.clear()
+    #  self.horton_ham.compute_fock(fock, None)
+    #  # Check for convergence
+    #  error = lf.error_eigen(fock, overlap, wfn.exp_alpha)
+    #  if error <threshold:
+    #    converged = True
+    #    break
+    #  # agonalize the fock operator
+    #  wfn.clear() # discard previous wfn state
+    #  wfn.update_exp(fock, overlap)
+    #  # t the hamiltonian know that the wavefunction has changed.
+    #  self.horton_ham.clear()
+    #  #write intermediate results to checkpoint
+    #  self.horton_ham.system.update_chk('wfn')
+    #  counter += 1
+    self.horton_ham.compute()
+
 
 class General_Pairing_Ham(Hamiltonian):
   """
-  The pairing Hamiltonian with a level dependend interaction constant.
+  The paing Hamiltonian with a level dependend interaction constant.
   """
   def __init__(self, eps ,deg , sen , gij , pair):
     """
