@@ -485,7 +485,7 @@ def stijnd():
   #generating_datak(rgeq, tdadict , 'g' ,-0.0005 , -0.3	, tdafilebool = False, exname = exname)
   'pairingtinsen=0.dat'
   seniority_enhancer_allstates(rgeq,'pairingtin',0,exewaarde = 0,begin = -0.0005 ,step = -0.001)    
-  plottera = Plot_All_File('pairingtinsen=0.dat', -0.217 , regexp = r'seniority\s\[(.+?)\]',substr = r'\{.*\}')
+  plottera = Plot_All_File( 'pairingtinsen=0.dat', -0.217 , regexp = r'seniority\s\[(.+?)\]',substr = r'\{.*\}')
   plottera.plotrgcloud()
   #Plot_Data_File('pairingtinsen=0.dat').standard_plot(True , True)
 
