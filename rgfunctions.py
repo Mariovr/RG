@@ -423,43 +423,42 @@ def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.0005,s
   if vsen == 0:
     enil = []
     ontaarding = 1
+    fd.write('#We are using seniority %s\n' %str(rgeq.senioriteit))
     allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde)
     #allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
-  wind = 0 #variable that determines from which states we are gonna start to look for the solutions, because the order
-  sw = 0
-  #of the instances in sen_places_gen and tdacombinations is always the same
-  deg = list(rgeq.ontaardingen) ; energielev = list(rgeq.energiel) 
-  for se_pla in sen_places_gen:
-    rgeq.ontaardingen = deg ; rgeq.energiel = energielev 
-    rgeq.senioriteit = [0]*len(rgeq.ontaardingen)
-    ontaarding = 1
-    enil = []
-    possol = True
-    for i in se_pla:
-      rgeq.senioriteit[i] += 1
-      enil.append(rgeq.energiel[i])
-    fd.write('#We are using seniority %s\n' %str(rgeq.senioriteit))
-    print ('the seniority is %s' %str(rgeq.senioriteit))
-    j = 0
-    while j < len(rgeq.senioriteit):
-      assert(rgeq.senioriteit[j] <= rgeq.ontaardingen[j]/2.)
-      if rgeq.senioriteit[j] == rgeq.ontaardingen[j]/2.:
-        del(rgeq.energiel[j]) ; del(rgeq.ontaardingen[j]) ; del(rgeq.senioriteit[j]) #the level is full with unpaired electrons so the level doesn't take part in the pairing interaction
-        j -= 1
-      j+= 1
-    #calculate the degeneracy of the level  
-    for i in range(len(rgeq.senioriteit)):
-      if rgeq.senioriteit[i] is not 0:        
-        ontaarding *= binoml(rgeq.ontaardingen[i]/2.,rgeq.senioriteit[i])
-    print rgeq.energiel,rgeq.ontaardingen, rgeq.senioriteit,rgeq.apair, enil
-    assert(len(enil) == vsen) #check if we take into account all unpaired elektrons in total energy later  
-    if npair is not 0:
-      #if npair > 2:
-      wind = allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde,wind = wind,startw = sw,begin = begin,step = step)
-      #else:
-        #allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
-    else:
-      fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), sum(enil)+exewaarde,ontaarding,'geen RGvars' ,'geen RGvars'))    
+  else: 
+    wind = 0 #variable that determines from which states we are gonna start to look for the solutions, because the order
+    sw = 0
+    #of the instances in sen_places_gen and tdacombinations is always the same
+    deg = list(rgeq.ontaardingen) ; energielev = list(rgeq.energiel) 
+    for se_pla in sen_places_gen:
+      rgeq.ontaardingen = deg ; rgeq.energiel = energielev 
+      rgeq.senioriteit = [0]*len(rgeq.ontaardingen)
+      ontaarding = 1
+      enil = []
+      possol = True
+      for i in se_pla:
+        rgeq.senioriteit[i] += 1
+        enil.append(rgeq.energiel[i])
+      fd.write('#We are using seniority %s\n' %str(rgeq.senioriteit))
+      print ('the seniority is %s' %str(rgeq.senioriteit))
+      j = 0
+      while j < len(rgeq.senioriteit):
+        assert(rgeq.senioriteit[j] <= rgeq.ontaardingen[j]/2.)
+        if rgeq.senioriteit[j] == rgeq.ontaardingen[j]/2.:
+          del(rgeq.energiel[j]) ; del(rgeq.ontaardingen[j]) ; del(rgeq.senioriteit[j]) #the level is full with unpaired electrons so the level doesn't take part in the pairing interaction
+          j -= 1
+        j+= 1
+      #calculate the degeneracy of the level  
+      for i in range(len(rgeq.senioriteit)):
+        if rgeq.senioriteit[i] is not 0:        
+          ontaarding *= binoml(rgeq.ontaardingen[i]/2.,rgeq.senioriteit[i])
+      print rgeq.energiel,rgeq.ontaardingen, rgeq.senioriteit,rgeq.apair, enil
+      assert(len(enil) == vsen) #check if we take into account all unpaired elektrons in total energy later  
+      if rgeq.apair is not 0:
+        wind = allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde,wind = wind,startw = sw,begin = begin,step = step)
+      else:
+        fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), sum(enil)+exewaarde,ontaarding,'geen RGvars' ,'geen RGvars'))    
   
   fd.close()
   return 0
@@ -488,6 +487,7 @@ def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,
     #tdastart needs to be a dictionary so we need to convert the list that contains one element of the permutation sequence to a dictionary    
     tdastartd = {}
     goodsol = True
+    ontaarding = 1.
     for i in tdadict:
       a = tdadict.count(i)      
       tdastartd[i] = a
@@ -497,12 +497,16 @@ def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,
       wind += 1
     if goodsol == True and wind > startw:
       for key,value in tdastartd.iteritems():
-        ontaarding *= binoml(int(rgeq.ontaardingen[key]/2),int(value))
-      #energierg,rgvars = wp.generating_datak(rgeq,afhxas,tdastartd,step,ende  ,rgvars = None,rgwrite = False,exname = '%g' %wind,moviede = False,tdafilebool = False) 
-      rgeq.g = begin
-      littleLoop(rgeq,step,2.,complexstepd = 10000,end = ende,backxi = False,xival = 1.,pairingdtje = tdastartd)
-      energierg = rgeq.get_energy() + sum(extrae) +exe  #add the contribution of the unpaired electrons   
-      fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(tdastartd), energierg,ontaarding,' '.join(map(str,rgeq.rgsolutions.real)),' '.join(map(str,rgeq.rgsolutions.imag))))     
+        ontaarding *= binoml(int(rgeq.ontaardingen[key]/2.),int(value))
+      rgeq.g = begin ; rgeq.rgsolutions = None
+      energierg,rgeq = wp.generating_datak(rgeq,tdastartd,afhxas,step,ende , rgwrite = False,exname = '%g' %wind,moviede = False,tdafilebool = False) 
+      #littleLoop(rgeq,step,2.,complexstepd = 10000,end = ende,backxi = False,xival = 1.,pairingdtje = tdastartd)
+      energierg +=  sum(extrae) +exe  #add the contribution of the unpaired electrons   
+      fd.write("%s\t%.12f\t%.12f" %(str(tdastartd), energierg,ontaarding)) 
+      for i in range(rgeq.apair):
+        fd.write('\t%.12f' %( rgeq.rgsolutions[i].real ))
+        fd.write('\t%.12f' %( rgeq.rgsolutions[i].imag ))
+      fd.write('\n')
   return wind
   
 def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataanalyse = {'rgw': False , 'ple' : False , 'plrg' : False , 'ont' : True}): 
@@ -530,14 +534,19 @@ def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataan
     print 'we start rg.main_rgsolver with: ', dict#,energielev,koppelingsconstante,npair,sencopy,rgvar,deg
     try:
       rgeqn = rg.RichardsonSolver(rgeq).main_solve(dict,rgwrite = rgw, plotrgvarpath = plrg , plotepath = ple) 
-      energierg = rgeqn.get_energy()+sum(extrae) + exe  #add the contribution of the unpaired electrons
+      energierg = rgeqn.solve()+sum(extrae) + exe  #add the contribution of the unpaired electrons
     except rg.XiError as xier:
       nosol = True       
     if nosol == False:
       if dataanalyse['ont'] == True:
+        ontaarding = 1.
         for key,value in dict.iteritems():
           ontaarding *= binoml(int(rgeqn.ontaardingen[key]/2),int(value))
-      fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), energierg,ontaarding,' '.join(map(str,rgeqn.rgsolutions.real)),' '.join(map(str,rgeqn.rgsolutions.imag))))     
+      fd.write("%s\t%.12f\t%.12f" %(str(tdastartd), energierg,ontaarding)) 
+      for i in range(rgeq.apair):
+        fd.write('\t%.12f' %( rgeq.rgsolutions[i].real ))
+        fd.write('\t%.12f' %( rgeq.rgsolutions[i].imag ))
+      fd.write('\n')
     else:
       fd.write('#%s has no solution we reached xi and energyvalue: %f %f %s\n' %(str(dict),xier.xi,xier.energy,str(xier.rgvars).translate(None,'\n')) )
       pass
