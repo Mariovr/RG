@@ -132,12 +132,11 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
           if regexp is not None:
             analyse = re.search(regexp,line)
             if analyse:
-              kpuntenf.append((analyse.group(1), len(dataf)-1 ))
+              kpuntenf.append((analyse.group(1),len(dataf) ))
               print 'we found the following matches: %s' % analyse.group(0)
           if substr != None: 
             line = re.sub(substr, '' , line)
           if line[0] != comment:
-            #print line
             pline = np.array(map(float,line.split()))
             if len(dataf) <= 1:
               dataf = pline
@@ -198,6 +197,7 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
       #self.plotstar( number = 6 , length = 1  , sort = ['dashed', 'dashdot' ] , color = ['b','r']) #used to create the nice star plot in my factorisable interaction paper
       for i in xrange(columnstart,columnend,2):
         if 'cp' in name:
+          """
           sort = ':'
           if j % 2 == 1:
             color = 'r'
@@ -212,6 +212,8 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
               label = r'$g < \frac{-1}{7}$' #to create the legend uncomment the automatical legend line in the layout
             else:
               label = None
+            """
+          sort = '.'
           self.fig.axes[axnum].plot(self.datarg[j][begin:stop,i],self.datarg[j][begin:stop,i+1], color+sort , label = label , markersize = 3)#, mfc = 'None')
         else:
           self.fig.axes[axnum].plot(self.datarg[j][begin:stop,0],self.datarg[j][begin:stop,i] , color, label = label)
@@ -580,15 +582,21 @@ class Plot_All_File(Plot_RG_Files):
     """
     This function needs it own datareader because it's to specific
     """
+    import itertools
     print self.kpunten
     for i in range(len(self.kpunten[0])):
-      self.writetext('sen ='+ self.kpunten[0][i][0], (0.65,0.85), axnum = 0, hor = None  ,ver = None , rot = None ,fs =14 , transform = self.fig.axes[0].transAxes)
+      self.writetext('sen ='+ self.kpunten[0][i][0], (0.60,0.95), axnum = 0, hor = 'left',ver = 'bottom', rot = None ,fs =14 , transform = self.fig.axes[0].transAxes)
       if i == len(self.kpunten[0]) -1 :
         end = None
       else:
-        end = self.kpunten[0][i+1][1] + 1
-      print end
-      self.plotrgwrap( self.rgindex,2*self.reader.npair+self.rgindex,'real part of rgvars ' , 'imaginary part of rgvars ', tit ='RG vars g = %f all states'%(self.chardata) , begin = self.kpunten[0][i][1]  , stop = end , name = 'cpcloud'+ self.kpunten[0][i][0] , filenum = 0)
+        end = self.kpunten[0][i+1][1] 
+      begin = self.kpunten[0][i][1] 
+      revars = list(itertools.chain.from_iterable(self.datarg[0][begin:end,self.rgindex:self.rgindex+2*self.reader.npair:2]))
+      imvars = list(itertools.chain.from_iterable(self.datarg[0][begin:end,self.rgindex+1:self.rgindex+2*self.reader.npair + 1:2]))
+      energy = list(itertools.chain.from_iterable([[line[0]] * self.reader.npair for line in self.datarg[0][begin:end]]))
+      self.scatterplot(revars , imvars , energy , colormap = 'hot')
+      self.layout( 'real part of rgvars ' ,  'imaginary part of rgvars ', xlim = None, ylim =None, tit = 'RG vars g = %f all states'%(self.reader.g) , axnum = 0 , legendhand = None , legendlab = None , legendpos = 'best' , finetuning = False)
+      self.savefig('allstates%f' % (self.reader.g) , samedir = True)
   
 def plot(name, ylim = None):
   #plots a two column file column 1 is x-axis, column 2 is y-axis
@@ -664,8 +672,8 @@ def main(option, args):
     plotter.plotrgvars(cplane = cp , begin = begin , stop = stop , name = '', xlim = None, ylim = None, prefix = True)
   
   if option is 'rgcloud':
-    name = 'newstyleDang120neutronwin5_5sen2.dat'
-    plottera = Plot_All_File(name, -0.137 , regexp = r'seniority\s\[(.+?)\]',substr = r'\{.*\}')
+    name = 'pairingtinsen=0.dat'
+    plottera = Plot_All_File(name, -0.217 , regexp = r'seniority\s\[(.+?)\]',substr = r'\{.*\}')
     plottera.plotrgcloud()
   
   if option is 'cprgvar':
@@ -701,7 +709,7 @@ def defineoptions():
   by adding empty sp levels and get from those files the groundstate energy at a constant g and plot them and perform lin.regression 
   '''
   #common options are: wpairing, rgvar, intmotion
-  option = 'rgclouddata'
+  option = 'rgcloud'
   #args =  -0.137 , None
   args =  '.','xipath' ,True , 'xipath',True, 'xipath' ,  False,'.',r'constant:\s*([\-0-9.]+)', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False 
   main(option,args)
