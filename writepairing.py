@@ -58,8 +58,7 @@ def main():
   if filename == None or runstring == 'f':
     rgeq = create_predefined_rgeq(interactionconstant,eta,npair,nlevel ,hamiltonian, inputname)
   else:
-    #rgeq = dr.ReaderOutput(filename, inputline= '', comment = '%').make_rgeq()
-    rgeq = dr.ReaderInp(filename,  comment = '*').make_rgeq(types = 'RichRedBcs')
+    rgeq = dr.ReaderOutput(filename, inputline= '', comment = '%').make_rgeq()
     rgeq.g = start
 
   #initialise the start tda dictionary 
@@ -379,36 +378,12 @@ def restart_somestates(afhxas,step,ende,rgw,mov,tdaf , afhvar = None , linenr = 
     os.chdir(cwd)
   Plot_Data_File().plot_spectrum(name = 'spectrum' , rgw = rgw , intm = intm)
 
-def get_tdadictiteratorlowestgroup(npair, nlevel):
-  """
-  Remark quick hack, implement this for general degeneracies
-  This is an example of a generator (as is the output from combinations_with_replacement) you can only run once with a for loop over a generator because it doesn't keep the values in memory it uses one value then forgets and go to next,... ; as opposed to iterators which keep all values in memory so you can run over an iterable object multiple times (list,string,file,...) (sometimes not so good if you have to many values ;) solution -> generators)
-  """
-  o = range(npair)
-  v = range(npair , nlevel)
-  for i in range(0,-1*npair,-1):
-    if i == 0:
-      yield o
-    else:
-      tdad = o[:i] + v[:-1*i]
-      yield tdad
-
-  for j in range(npair-1):
-    oc = list(o)
-    del(oc[j])
-    yield oc + [npair]
-
-def get_facgap(npair,nlevel):
-  yield range(npair) 
-  yield range(1,npair+1)
-
 def allstatesgenerating_datak(rgeq,afhxas,step,ende,rgw,mov,tdaf , intm = True):
   '''
   Calculates all the eigenvalues of the pairingsHamiltonian at positive or negative interaction constant.
   If you want both write a wrapper or use the wrappermainsfile ;). 
   '''
   tdacombinations = combinations_with_replacement(np.arange(rgeq.alevel),rgeq.apair)
-  #tdacombinations = get_facgap(rgeq.apair,rgeq.alevel)
   tdacor = open('tdacor.dat','w')
   tdacor.write('#This file contains the correspondence between the directories and the start tda distributions \n#The first column is the directory number and on the same line is the tda start distribution written \n')
   i = 0 #the i parameter makes it easy to restart after a failure just but i in the condition bigger as the i at failure
@@ -492,82 +467,6 @@ def allstatesoneg(npair = 3):
   plotterxi.procesfiles('.', 'xipath')    
   plotterxi.plot_spectrumxichange()
 
-def testcircumvent():
-  '''
-  test for the rgsolutions when xi is not one and/ or g is imaginary
-  '''
-  energy , deg , sen = picketfence(alevel = 12) 
-  g = -1.0001
-  rgeq = rg.RichFacInt(energy , deg ,sen , g,1., 6)
-  tdastartd = {0:6}
-  #tdastartd = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
-  enddatak = -0.0001
-  stepg = 0.001
-  rgvar = None
-  afhxas = 'g'
-  #generate seperate dir for the solved problem
-  generate_dir('testcircumventlowxifacintrest2',None,None)
-  print tdastartd
-  xival =1.
-  while xival >= 0.:
-    try:
-      rgeq2 = rg.RichardsonSolver(rgeq.copy()).main_solve(tdastartd,xistep = 0.01,xival=xival)   
-    except rg.XiError:
-      pass
-    energierg = rgeq2.get_energy()
-    while rgeq2.g.imag < abs(rgeq2.g.real/10.):
-      rgeq2.g += 1j*0.001
-      energierg = rgeq2.solve()
-      print rgeq2.g 
-    generating_datak(rgeq2,tdastartd,afhxas,stepg,enddatak ,rgwrite = True,exname = '%f' %xival,moviede = False,tdafilebool = False,xival = xival)
-    Plot_Data_File("plotenergy%f.dat" %xival).standard_plot(True , True)
-    xival -= 0.1  
-
-def dangmain():
-  '''
-  main to describe the tin pairing spectrum recieved by dang: http://ribf.riken.go.jp/~dang/publication.html
-  '''
-  #initialisation variables
-  filename = sys.argv[1]
-  cutoff = 1e5
-  koppelingsconstante = -0.137
-  energielev,degeneration = dangSn(filename,cutoff)
-  nlevel,degeneration = checkdegeneratie(energielev,degeneration,nauw = 0.0011)
-  npair = 35
-  rgvard = None
-  senioriteit = [0]*len(energielev)  
-  pairingd = {0:35}
-  energielev,degeneration,senioriteit,npair,nlevel,fermil,extrae = windowcreation(energielev,degeneration,senioriteit,npair,5,5)
-  #senioriteit = [3,3,0,0,0,0]
-  pairingd = tdadict_kleinekoppeling(npair,degeneration,senioriteit)
-  #apair = 7
-  print energielev,degeneration,senioriteit,npair,nlevel,fermil
-  #pairingd = {4:5}
-  #[-10.4576,-8.4804,-7.6512,-7.7025] #ijzer
-  generate_dir('dangsentest','Sn120Neutrons',None)  #generate seperate dir for the solved problem
-  step = -0.001
-  ende = -10
-  afhxas = 'g' 
-  tel = 0
-  eta = 1.
-  wafh = 120
-  d = calculated(energielev,degeneration)
-  rgeq = RichRedBcs(energielev,degeneration,senioriteit,koppelingsconstante,npair)
-  #while(energielev[-1] >= 0):
-  #generating_datak(rgeq,pairingd,afhxas,step,ende,rgvars = rgvard,tdafilebool = False ,exname = 'Dang%g' %tel)       
-  #generate_plot(len(energielev),npair,afhxas,plotg = False,name='plotenergyDang%g.dat' %tel)
-  """
-    tel += 1
-    del(energielev[-1])
-    del(senioriteit[-1])
-    del(degeneration[-1])
-    """ 
-  #we make the problem smaller by using a cutoff energy
-  
-  #totsen = np.arange(8.,npair*2+1,2.)
-  totsen = [12.]
-  for vsen in totsen: 
-    seniority_enhancer_allstates(rgeq,'DangSn120neutronwindow(5,5)',vsen,exewaarde = extrae,begin = -0.001 ,step = -0.0001)    
 
 def stijnijzer():
   rgeq = dr.get_restart_rgeq('plotenergy1.dat', afhvar = -0.9233, linenr = None, startrg = 3)
@@ -575,53 +474,6 @@ def stijnijzer():
   exname = 'nauwkeurigomgekeerd'
   generating_datak(rgeq,None, 'g' ,-0.000001 , -9.23435 , tdafilebool = True , exname = exname)
   Plot_Data_File("plotenergy%s.dat" %exname).standard_plot(True , True)
-
-def behaviour_conpoint():
-  reader = dr.ReaderOutput('plotenergy.dat')
-  conp = reader.npair #condensed pairs -> npair == Moore-Read point
-  nconp = reader.npair - conp #uncondensed pairs
-  conpoint = reader.eta/(2.*nconp +conp -1-2.*np.sum(np.array(reader.degeneracies)/4. -np.array(reader.seniorities)))
-  reader.readrgvars(afhvar = conpoint + 0.005, linenr = None, startrg = 3)
-  rgeq = reader.make_rgeq(types = 'RichFacInt', depvar = None)
-  print rgeq
-  exname = 'nauwkeurigconpoint'
-  generating_datak(rgeq,None, 'g' ,-0.00001 ,conpoint -0.005 , tdafilebool = False , exname = exname)
-  Plot_Data_File("plotenergy%s.dat" %exname).standard_plot(True , True)
-
-def dirrunreadgreen():
-  for name in os.listdir('.'):
-    if os.path.isdir(name):
-      os.chdir(name)
-      print "changed to dir: %s " %name
-      mainreadgreen()
-      os.chdir('../..')
-
-def mainreadgreen():
-  plotter = Plot_Data_File().plot_spectrum(xlim = (-0.6,0), ylim = None,search = 'plotenergy', rgw = True, intm = True, name = 'specreadgreen' , readgreen = True , standard = False)
-  file =  open('readgreenfile.dat', 'r')
-  for line in file:
-    if 'filename' in line:
-      match = re.search(r'/(\d+)/', line)
-      print os.getcwd()
-      os.chdir(str(match.group(1)) )
-      #readgreentda()
-  file.close()
-  
-def readgreentda(): 
-  reader = dr.ReaderOutput('plotenergy.dat')
-  readgreenpoint = reader.eta/(2.*(reader.npair-1) -2.*np.sum(np.array(reader.degeneracies)/4. -np.array(reader.seniorities)))
-  reader.readrgvars(afhvar = readgreenpoint, linenr = None, startrg = 3)
-  rgeq = reader.make_rgeq(types = 'RichFacInt', depvar = None)
-  print rgeq
-  if readgreenpoint < rgeq.g :
-    generating_datak(rgeq, None, 'g' ,-0.0002 , readgreenpoint  , tdafilebool = True, exname = 'readgreen', moviede = True)
-  elif readgreenpoint > rgeq.g :
-    generating_datak(rgeq, None, 'g' ,0.0002 , readgreenpoint , tdafilebool = True, exname = 'readgreen' , moviede = True)
-  else:   
-    rgsolver = rg.RichardsonSolver(rgeq)
-    pairingdict  =  rgsolver.main_desolve(xistep = -0.01,rgwrite = True, plotrgvarpath = True,plotepath = False)
-    print pairingdict
-    Plot_Xi_File('.',"xipath").plotrgvarsxi(name = 'rgvxi' ,xlim = None , ylim = None)
 
 def stijnd():
   readdata = dr.ReaderInp('pairing-parameters-tin-gmatrix2.inp', comment = '*')
@@ -637,27 +489,5 @@ def stijnd():
   plottera.plotrgcloud()
   #Plot_Data_File('pairingtinsen=0.dat').standard_plot(True , True)
 
-def test_critical():
-  for i in range(1,8):
-    elev = [1,2] ; ont = [2*i,2] ; sen = [0,0] ; g = -0.0001
-    rgeq = rg.RichRedBcs(elev,ont,sen,g,1+i)
-    tdadict =tdadict_kleinekoppeling(rgeq.apair, rgeq.ontaardingen, rgeq.senioriteit)
-    dir = '%gcorner' %(i+1)
-    #os.mkdir(dir)
-    os.chdir(dir)
-    generating_datak(rgeq,tdadict,'g',-0.001, -1.1,exname = '%g' %(i+1))
-    os.chdir('..')
-
 if __name__ == "__main__":
-  #main()
-  #dirrunreadgreen()
-  #behaviour_conpoint()
-  #parse_commandline()
-  #dangmain()
-  #testcircumvent()
-  #addlevel() #function in rgfunctions
-  #facintmain()
-  #allstatesoneg()
-  stijnd()
-  #stijnijzer()
-  #test_critical()
+  main()
