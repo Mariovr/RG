@@ -36,10 +36,14 @@ class RichardsonEq(object):
     the start of a general Richardson-Gaudin problem, with XI set in the initialisation to a value that is a bit larger than zero
     (XI = zero corresponds to the tda approximation, XI = one corresponds to the pairing problem that we need to solve)
     """
-    self.xi = xi #just a random very small variable so that the near tda approxiamation works
-    self.energiel = array(sorted(energiel_),float)
+    self.xi = xi #a random very small variable so that the near tda approxiamation works
+    self.energiel = array(energiel_,float)
     self.ontaardingen = array(ontaard_,float)
     self.senioriteit = array(senior_,float)
+    sortindices = np.argsort(self.energiel)
+    self.energiel = self.energiel[sortindices] 
+    self.ontaardingen = self.ontaardingen[sortindices]
+    self.senioriteit = self.senioriteit[sortindices]
     self.g = kop_
     self.apair = apair_
     self.alevel = len(self.energiel)

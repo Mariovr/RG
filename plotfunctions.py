@@ -460,13 +460,13 @@ class Plot_Data_File(Plot_RG_Files ):
     self.layout('number of added continuum sp levels', 'groundstate energy (MeV)', tit =  'the groundstate energy of Sn120 with i.c.:  %.3f' %g )
     self.savefig('g=%fal.png' % g)
 
-  def plotrgcloud(self ,begin = 0, step = 1 ,  colormap = 'hot'):
+  def plotrgcloud(self ,begin = 0, step = 1 ,  colormap = 'hot' , xlim = None , ylim = None):
     while begin <= np.shape(self.datarg[0])[0]:
       revars = [rerg for dat in self.datarg for rerg in dat[begin,self.rgindex:self.rgindex+2*self.reader.npair:2]]
       imvars = [imrg for dat in self.datarg for imrg in dat[begin,self.rgindex+1:self.rgindex+2*self.reader.npair + 1:2]]
       energy = [[dat[begin,2]] *self.reader.npair for dat in self.datarg ]
       self.scatterplot(revars , imvars , energy , colormap = colormap)
-      self.layout( 'real part of rgvars ' ,  'imaginary part of rgvars ', xlim = None , ylim = None , tit = 'RG vars g = %f all states'%(self.datarg[0][begin , 0]) , axnum = 0 , legendhand = None , legendlab = None , legendpos = 'best' , finetuning = False)
+      self.layout( 'real part of rgvars ' ,  'imaginary part of rgvars ', xlim = xlim , ylim = ylim, tit = 'RG vars g = %f all states'%(self.datarg[0][begin , 0]) , axnum = 0 , legendhand = None , legendlab = None , legendpos = 'best' , finetuning = False)
       self.savefig('allstates%f' % (self.datarg[0][begin,0]) , samedir = True)
       begin += step
     makemovie(name = 'allstatesrgcloud')    
@@ -646,7 +646,7 @@ def main(option, args):
 
   if option == 'rgclouddata':
     plotter.procesfiles(args[0] , 'plotenergy' , notdir = 'movie')
-    plotter.plotrgcloud(step = 10)
+    plotter.plotrgcloud(step = 100, xlim = (-14.,-7.) , ylim = (-2.5, 2.5))
       
   if option == 'addlevel':
     plotter.procesfiles( '.' , 'plotenergy' ,   sortfunction = lambda s : int(re.search(r'\d+' , s).group()), rev = True , regexp = r'^%f\s+[\-+\.\d]+\s+([\-+\.\d]+)\s' % args[0])
@@ -701,7 +701,7 @@ def defineoptions():
   by adding empty sp levels and get from those files the groundstate energy at a constant g and plot them and perform lin.regression 
   '''
   #common options are: wpairing, rgvar, intmotion
-  option = 'gapsurvey'
+  option = 'rgclouddata'
   #args =  -0.137 , None
   args =  '.','xipath' ,True , 'xipath',True, 'xipath' ,  False,'.',r'constant:\s*([\-0-9.]+)', r'xi[0-9\.a-zA-Z\-]+.dat$','g'  ,False 
   main(option,args)

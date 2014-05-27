@@ -46,7 +46,7 @@ def main():
   """
   main function that solves the rg equations for general sp levels and degeneracies extracted from a given file 
   """
-  rgw = True ; mov = False ; tdaf = False ; intm = True #rgw: writes Rg vars to outputfile , tdaf: for each step go back to xi = 0 and determine start tdasol , intm: write integrals of motion to outputfile, mov: if tdaf = True plot all xipaths and make a movie
+  rgw = True ; mov = True; tdaf = True; intm = False#rgw: writes Rg vars to outputfile , tdaf: for each step go back to xi = 0 and determine start tdasol , intm: write integrals of motion to outputfile, mov: if tdaf = True plot all xipaths and make a movie
   wd2 = -50. #(wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable is not defined (wd < 0) then the number of sp levels stays constant
   filename, depvar, interactionconstant,eta , nlevel, npair, runstring, hamiltonian, inputname,tdadict,start , step , ende, args =  parse_commandline()
 
@@ -58,7 +58,9 @@ def main():
   if filename == None or runstring == 'f':
     rgeq = create_predefined_rgeq(interactionconstant,eta,npair,nlevel ,hamiltonian, inputname)
   else:
-    rgeq = dr.ReaderOutput(filename, inputline= '', comment = '%').make_rgeq()
+    #rgeq = dr.ReaderOutput(filename, inputline= '', comment = '%').make_rgeq()
+    rgeq = dr.ReaderInp(filename,  comment = '*').make_rgeq(types = 'RichRedBcs')
+    rgeq.g = start
 
   #initialise the start tda dictionary 
   if tdadict == 'weak':    
@@ -305,7 +307,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
       if tdafilebool is True:
         rgsolver = rg.RichardsonSolver(rgeq)
         try:
-          pairingdict  =  rgsolver.main_desolve(xistep = -0.01,rgwrite = False, plotrgvarpath = moviede,plotepath = False)
+          pairingdict  =  rgsolver.main_desolve(xistep = -0.01,rgwrite = False, plotrgvarpath = moviede,plotepath = False, xlim = None, ylim = None )
           tdasol = rgsolver.get_tda(None) 
           tdafile.write('%f\t%s\t%s\n'  %(rgeq.getvar(dvar,  depvarindex),' '.join(map(str,pairingdict)), ' '.join(map(str,(tdasol)))))
         except (ValueError, np.linalg.linalg.LinAlgError,NameError , rg.XiError) as e:
@@ -621,15 +623,18 @@ def readgreentda():
     Plot_Xi_File('.',"xipath").plotrgvarsxi(name = 'rgvxi' ,xlim = None , ylim = None)
 
 def stijnd():
-  readdata = dr.ReaderInp('pairing-parameters.inp', comment = '*')
-  rgeq = readdata.make_rgeq()
+  readdata = dr.ReaderInp('pairing-parameters-tin-gmatrix.inp', comment = '*')
+  generate_dir('stijn_conf','pairing-parameters-tin-gmatrix.inp',None)  #generate seperate dir for the solved problem
+  rgeq = readdata.make_rgeq(types = 'RichRedBcs')
   tdadict = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
-  rgeq.g = -0.0001
   #tdadict = {0:rgeq.apair}
-  exname = 'stijnconf3'
   #rgeq = dr.get_restart_rgeq('plotenergystijnconf2.dat', afhvar = -0.319600, linenr = None)
-  generating_datak(rgeq, tdadict , 'g' ,-0.0005 , -0.050100	, tdafilebool = False, exname = exname)
-  Plot_Data_File("plotenergy%s.dat" %exname).standard_plot(True , True)
+  #generating_datak(rgeq, tdadict , 'g' ,-0.0005 , -0.3	, tdafilebool = False, exname = exname)
+  'pairingtinsen=0.dat'
+  seniority_enhancer_allstates(rgeq,'pairingtin',0,exewaarde = 0,begin = -0.0005 ,step = -0.001)    
+  plottera = Plot_All_File('pairingtinsen=0.dat', -0.217 , regexp = r'seniority\s\[(.+?)\]',substr = r'\{.*\}')
+  plottera.plotrgcloud()
+  #Plot_Data_File('pairingtinsen=0.dat').standard_plot(True , True)
 
 def test_critical():
   for i in range(1,8):

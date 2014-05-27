@@ -8,7 +8,7 @@
 # (c) Ghent University, 2013
 import sys,math , os  , shutil 
 import numpy as np
-from numpy import ones, zeros ,array, sort,linalg,empty
+from numpy import ones, zeros ,array, linalg,empty
 from itertools import combinations,combinations_with_replacement
 from operator import mul
 import linecache,copy
@@ -32,7 +32,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
   '''
   rgeq = copy.deepcopy(rgeq)
   if rgeq.rgsolutions is None:
-    energierg,rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdtje, xival = xival)
+    rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdtje, xival = xival)
   print ('######################################')
   print ('Making g complex to circumvent a critical point on rgeq = %s and n = %g, stepg= %f, complexstepd = %f , dvar = %s, end = %f' %(str(rgeq),n,stepg,complexstepd,dvar,end))
   print ('######################################')
@@ -391,7 +391,7 @@ def mergefiles(file1,file2,reversed = False):
 def degeneracies_super(nlevel):
   return ones(nlevel,float)*2.   
 
-def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.001,step = -0.001,exinfo ='#The paired spectrum of the neutrons of Sn120' ):
+def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.0005,step = -0.001,exinfo ='#The paired spectrum of the neutrons of Sn' ):
   '''
   INPUT: list(energielev) the sp energielevels, list(deg) a list with the same length as energielev, that contains the degeneracies
   of the corresponding levels, list(sen) the seniority of the corresponding levels, integer(npair) the number of pairs, integer(vsen) the total 
@@ -413,6 +413,7 @@ def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.001,st
   '''
   rgeq.apair -= vsen/2  #the netto amount of pairs is reduced because of the pairbreaking of vsen/2 pairs
   fd = open(fname + 'sen=%g.dat' %vsen , 'w')
+  from datareader import info_1set
   info_1set(fd,str(rgeq) , exinfo = '%s total seniority = %f' %(exinfo,vsen) ,contenergy = exewaarde)
   sencombarray = []
   for i in range(rgeq.alevel):
@@ -422,8 +423,8 @@ def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.001,st
   if vsen == 0:
     enil = []
     ontaarding = 1
-    #allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde)
-    allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
+    allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde)
+    #allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
   wind = 0 #variable that determines from which states we are gonna start to look for the solutions, because the order
   sw = 0
   #of the instances in sen_places_gen and tdacombinations is always the same
@@ -454,18 +455,17 @@ def seniority_enhancer_allstates(rgeq,fname,vsen,exewaarde = 0,begin = -0.001,st
     assert(len(enil) == vsen) #check if we take into account all unpaired elektrons in total energy later  
     if npair is not 0:
       #if npair > 2:
-        #wind = allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde,wind = wind,startw = sw,begin = begin,step = step)
+      wind = allstateslowg(rgeq,fd,ontaarding,extrae = enil,exe = exewaarde,wind = wind,startw = sw,begin = begin,step = step)
       #else:
-      allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
+        #allstatesstrongg(rgeq,fd,ontaarding,rgeq.alevel,extrae = enil,exe = exewaarde)
     else:
-      print 'd'
       fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), sum(enil)+exewaarde,ontaarding,'geen RGvars' ,'geen RGvars'))    
   
   fd.close()
   return 0
 
   
-def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,startw = -1,begin = -0.001):
+def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,startw = -1,begin = -0.0005):
   '''
   INPUT:Richardson-Gaudinequations(rgeq),filehandler(fd): file where the outputs is going to be written
   list(extrae): list of sp levels in the pairing window where unpaired elektrons are situated
@@ -497,11 +497,11 @@ def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,
       wind += 1
     if goodsol == True and wind > startw:
       for key,value in tdastartd.iteritems():
-        ontaarding *= binoml(rgeq.ontaardingen[key]/2,value)
+        ontaarding *= binoml(int(rgeq.ontaardingen[key]/2),int(value))
       #energierg,rgvars = wp.generating_datak(rgeq,afhxas,tdastartd,step,ende  ,rgvars = None,rgwrite = False,exname = '%g' %wind,moviede = False,tdafilebool = False) 
       rgeq.g = begin
       littleLoop(rgeq,step,2.,complexstepd = 10000,end = ende,backxi = False,xival = 1.,pairingdtje = tdastartd)
-      energierg += sum(extrae) +exe  #add the contribution of the unpaired electrons   
+      energierg = rgeq.get_energy() + sum(extrae) +exe  #add the contribution of the unpaired electrons   
       fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(tdastartd), energierg,ontaarding,' '.join(map(str,rgeq.rgsolutions.real)),' '.join(map(str,rgeq.rgsolutions.imag))))     
   return wind
   
@@ -518,7 +518,7 @@ def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataan
   #############
   Output: None
   '''
-  #to calculate all the permutations of 35 sp levels of the 77 so we choose out a np.arange(nlevel) npair levels where we put our pairs (with repetition)
+  #to calculate all the permutations of the pairs in the active sp levels so we choose out a np.arange(nlevel) npair levels where we put our pairs (with repetition)
   rgw = dataanalyse['rgw'] ; ple = dataanalyse['ple'] ; plrg = dataanalyse['plrg'] 
   tdacombinations = combinations_with_replacement(np.arange(activelevels),rgeq.apair)
   for tdadict in tdacombinations:
@@ -529,14 +529,14 @@ def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataan
     nosol = False
     print 'we start rg.main_rgsolver with: ', dict#,energielev,koppelingsconstante,npair,sencopy,rgvar,deg
     try:
-      energierg,rgeqn = rg.RichardsonSolver(rgeq).main_solve(dict,rgwrite = rgw, plotrgvarpath = plrg , plotepath = ple) 
-      energierg += sum(extrae) + exe  #add the contribution of the unpaired electrons
+      rgeqn = rg.RichardsonSolver(rgeq).main_solve(dict,rgwrite = rgw, plotrgvarpath = plrg , plotepath = ple) 
+      energierg = rgeqn.get_energy()+sum(extrae) + exe  #add the contribution of the unpaired electrons
     except rg.XiError as xier:
       nosol = True       
     if nosol == False:
       if dataanalyse['ont'] == True:
         for key,value in dict.iteritems():
-          ontaarding *= binoml(rgeqn.ontaardingen[key]/2,value)
+          ontaarding *= binoml(int(rgeqn.ontaardingen[key]/2),int(value))
       fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(dict), energierg,ontaarding,' '.join(map(str,rgeqn.rgsolutions.real)),' '.join(map(str,rgeqn.rgsolutions.imag))))     
     else:
       fd.write('#%s has no solution we reached xi and energyvalue: %f %f %s\n' %(str(dict),xier.xi,xier.energy,str(xier.rgvars).translate(None,'\n')) )
