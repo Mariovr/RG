@@ -498,10 +498,10 @@ def allstateslowg(rgeq,fd,ontaarding,extrae = [],step = -0.001,exe = 0,wind = 0,
     if goodsol == True and wind > startw:
       for key,value in tdastartd.iteritems():
         ontaarding *= binoml(int(rgeq.ontaardingen[key]/2),int(value))
-      #energierg,rgvars = wp.generating_datak(rgeq,afhxas,tdastartd,step,ende  ,rgvars = None,rgwrite = False,exname = '%g' %wind,moviede = False,tdafilebool = False) 
-      rgeq.g = begin
-      littleLoop(rgeq,step,2.,complexstepd = 10000,end = ende,backxi = False,xival = 1.,pairingdtje = tdastartd)
-      energierg = rgeq.get_energy() + sum(extrae) +exe  #add the contribution of the unpaired electrons   
+      rgeq.g = begin ; rgeq.rgsolutions = None
+      energierg,rgeq = wp.generating_datak(rgeq,tdastartd,afhxas,step,ende , rgwrite = False,exname = '%g' %wind,moviede = False,tdafilebool = False) 
+      #littleLoop(rgeq,step,2.,complexstepd = 10000,end = ende,backxi = False,xival = 1.,pairingdtje = tdastartd)
+      energierg +=  sum(extrae) +exe  #add the contribution of the unpaired electrons   
       fd.write("%s\t%f\t%f\t%s\tIm\t%s\n" %(str(tdastartd), energierg,ontaarding,' '.join(map(str,rgeq.rgsolutions.real)),' '.join(map(str,rgeq.rgsolutions.imag))))     
   return wind
   
@@ -530,7 +530,7 @@ def allstatesstrongg(rgeq,fd,ontaarding,activelevels,extrae = [],exe= 0 , dataan
     print 'we start rg.main_rgsolver with: ', dict#,energielev,koppelingsconstante,npair,sencopy,rgvar,deg
     try:
       rgeqn = rg.RichardsonSolver(rgeq).main_solve(dict,rgwrite = rgw, plotrgvarpath = plrg , plotepath = ple) 
-      energierg = rgeqn.get_energy()+sum(extrae) + exe  #add the contribution of the unpaired electrons
+      energierg = rgeqn.solve()+sum(extrae) + exe  #add the contribution of the unpaired electrons
     except rg.XiError as xier:
       nosol = True       
     if nosol == False:

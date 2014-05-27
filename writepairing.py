@@ -327,6 +327,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     lastkp = False   ; extremecp = False
     if (rgeq.getvar(dvar,  depvarindex)- abs(step)*0.8 < end and rgeq.getvar(dvar,  depvarindex) + abs(step)*0.8 > end):
       rgeq.setvar(dvar,end,  depvarindex)    
+      energierg = rgeq.solve()
     if rgeq.getvar(dvar,  depvarindex) < end and np.sign(step) < 0 :#some extra checks for the paranoid
       rgeq.setvar(dvar,end,  depvarindex)
     elif rgeq.getvar(dvar,  depvarindex) > end and np.sign(step) > 0:
@@ -623,8 +624,8 @@ def readgreentda():
     Plot_Xi_File('.',"xipath").plotrgvarsxi(name = 'rgvxi' ,xlim = None , ylim = None)
 
 def stijnd():
-  readdata = dr.ReaderInp('pairing-parameters-tin-gmatrix.inp', comment = '*')
-  generate_dir('stijn_conf','pairing-parameters-tin-gmatrix.inp',None)  #generate seperate dir for the solved problem
+  readdata = dr.ReaderInp('pairing-parameters-tin-gmatrix2.inp', comment = '*')
+  generate_dir('stijn_conf','pairing-parameters-tin-gmatrix2.inp',None)  #generate seperate dir for the solved problem
   rgeq = readdata.make_rgeq(types = 'RichRedBcs')
   tdadict = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
   #tdadict = {0:rgeq.apair}
@@ -648,7 +649,7 @@ def test_critical():
     os.chdir('..')
 
 if __name__ == "__main__":
-  main()
+  #main()
   #dirrunreadgreen()
   #behaviour_conpoint()
   #parse_commandline()
@@ -657,6 +658,6 @@ if __name__ == "__main__":
   #addlevel() #function in rgfunctions
   #facintmain()
   #allstatesoneg()
-  #stijnd()
+  stijnd()
   #stijnijzer()
   #test_critical()
