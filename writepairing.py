@@ -30,17 +30,18 @@ def parse_commandline():
   parser.add_option('-v','--variable',dest = 'depvar',default = 'g' , help = 'Give the string representation of the independend variable that is going to be changed')
   parser.add_option('-i','--interactionc',dest = 'interactionconstant',default = -0.001,type = float,help = 'Give the pairing strength')
   parser.add_option('-e','--eta',dest = 'eta',default = 1.,type = float,help = 'Give the weight of the single particle part of the factorisable interacion Hamiltonian')
+  parser.add_option('-o','--epsilon0',dest = 'epsilon0',default = 0.,type = float,help = 'Give the energy of the bosonic field')
   parser.add_option('-l','--levels', dest = 'levels' , default = None , help = 'Give the number of levels', type = int)
   parser.add_option('-p','--pairs',dest = 'pairs',default = None,help = 'Give the number of pairs', type = int)
   parser.add_option('-r','--run', dest = 'runstring' , default = 'k' , help = 'Give the mainrun you want the program to execute (f file , k one parameter changes , e excited states), r (restart from an outputfile or a set of outputfiles under current dir)')
-  parser.add_option('-H' , '--hamiltonian' , dest = 'hamiltonian' , default = 'r' , help = 'Give the hamiltonian you want to solve: \'r\' is the red. bcs. Hamiltonian, \'f\' is the fac. int. Hamiltonian')
+  parser.add_option('-H' , '--hamiltonian' , dest = 'hamiltonian' , default = 'r' , help = 'Give the hamiltonian you want to solve: \'r\' is the red. bcs. Hamiltonian, \'f\' is the fac. int. Hamiltonian, \'d\' is the Dicke hamiltonian')
   parser.add_option('-n', '--inputname', dest = 'inputname' , default = None , help = 'If you don\'t use an inputfile you can only use some predefined model problems such as: r (rombouts:2010) , s (sambataro:2008), d (dang inputfile of Sn120 (it is called Sn120Neutrons))' )
   parser.add_option('-t', '--tdadict', dest = 'tdadict' , default = 'weak', help = 'Give the start_tda distribution if weak -> start tdadict of weak interacting regime, if strong -> start tdadict of strong interacting regime, else integer that contains the desired tdadict: 210401 -> {0:2 , 1:1 , 2:0 ,3:4 ,4:0, 5:1}')
   parser.add_option('-x','--start', dest = 'start' , default = -0.0001, help = 'Give the start value of the independend variable' , type = float)
   parser.add_option('-y','--step', dest = 'step' , default = -0.0001, help = 'Give the step of the independend variable', type = float)
   parser.add_option('-z','--end', dest = 'end' , default = -1., help = 'Give the end value of the independend variable', type = float)
   (options , args) = parser.parse_args(sys.argv[1:]) #args is list of positional arguments that remains after the processing of the parsing options
-  return options.filename,  options.depvar,  options.interactionconstant, options.eta,options.levels, options.pairs, options.runstring,  options.hamiltonian,  options.inputname, options.tdadict, options.start, options.step , options.end, args
+  return options.filename,  options.depvar,  options.interactionconstant, options.eta,options.epsilon0,options.levels, options.pairs, options.runstring,  options.hamiltonian,  options.inputname, options.tdadict, options.start, options.step , options.end, args
 
 def main():
   """
@@ -48,7 +49,7 @@ def main():
   """
   rgw = True ; mov = True; tdaf = True; intm = False#rgw: writes Rg vars to outputfile , tdaf: for each step go back to xi = 0 and determine start tdasol , intm: write integrals of motion to outputfile, mov: if tdaf = True plot all xipaths and make a movie
   wd2 = -50. #(wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable is not defined (wd < 0) then the number of sp levels stays constant
-  filename, depvar, interactionconstant,eta , nlevel, npair, runstring, hamiltonian, inputname,tdadict,start , step , ende, args =  parse_commandline()
+  filename, depvar, interactionconstant,eta ,epsilon0, nlevel, npair, runstring, hamiltonian, inputname,tdadict,start , step , ende, args =  parse_commandline()
 
   if runstring == 'r': #handle the special case of a restart (this is special because we don't need to generate tdadicts or richardsoneq objects because all the start information is already contained in some outputfile)
     restart_somestates(depvar,step,ende,rgw,mov,tdaf ,afhvar = None ,linenr = -1 , intm = True , tw = 'a', exname = '')
@@ -62,14 +63,14 @@ def main():
     rgeq = dr.ReaderInp(filename,  comment = '*').make_rgeq(types = 'RichRedBcs')
     rgeq.g = start
 
-  #initialise the start tda dictionary 
+  #initialise the start tda dictionary   
   if tdadict == 'weak':    
     tdadict = tdadict_kleinekoppeling(rgeq.apair,rgeq.ontaardingen, rgeq.senioriteit)
   elif tdadict == 'strong':
     tdadict = {0 : rgeq.apair}
   else:
     tdadict = str2tdadict(tdadict)
-
+  
   #creation of directory name where we save the output of the run
   name = "%srun_%s_p%gl%g" %(rgeq.__class__.__name__,runstring,rgeq.apair,rgeq.alevel) 
   if filename != None: name += filename

@@ -418,7 +418,8 @@ r'seniority\s\[(.+?)\]' to find the seniority's in an allstates file
   def standard_plot(self , rgw = True , intm = True):
     self.generate_plot()
     if rgw:
-      self.plotrgvars(cplane = False , begin = 0 , stop = None)
+      #cplane eventjes op True gezet
+      self.plotrgvars(cplane = True , begin = 0 , stop = None)
     if intm:
       self.plotintofmotion()
 
@@ -715,5 +716,5 @@ def defineoptions():
   main(option,args)
 
 if __name__ == '__main__':
-  defineoptions()
-  #makemovie()
+  #defineoptions()
+  makemovie()
