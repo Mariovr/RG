@@ -47,7 +47,7 @@ def main():
   """
   main function that solves the rg equations for general sp levels and degeneracies extracted from a given file 
   """
-  rgw = True ; mov = True; tdaf = True; intm = False#rgw: writes Rg vars to outputfile , tdaf: for each step go back to xi = 0 and determine start tdasol , intm: write integrals of motion to outputfile, mov: if tdaf = True plot all xipaths and make a movie
+  rgw = True ; mov = False ; tdaf = False ; intm = False#rgw: writes Rg vars to outputfile , tdaf: for each step go back to xi = 0 and determine start tdasol , intm: write integrals of motion to outputfile, mov: if tdaf = True plot all xipaths and make a movie
   wd2 = -50. #(wd2 > 0 ) then we look at the correlation-energy in function of a changing density of the sp states. If the variable is not defined (wd < 0) then the number of sp levels stays constant
   filename, depvar, interactionconstant,eta ,epsilon0, nlevel, npair, runstring, hamiltonian, inputname,tdadict,start , step , ende, args =  parse_commandline()
 
@@ -59,8 +59,8 @@ def main():
   if filename == None or runstring == 'f':
     rgeq = create_predefined_rgeq(interactionconstant,eta,npair,nlevel ,hamiltonian, inputname)
   else:
-    #rgeq = dr.ReaderOutput(filename, inputline= '', comment = '%').make_rgeq()
-    rgeq = dr.ReaderInp(filename,  comment = '*').make_rgeq(types = 'RichRedBcs')
+    rgeq = dr.ReaderOutput(filename, inputline= '', comment = '%').make_rgeq()
+    #rgeq = dr.ReaderInp(filename,  comment = '*').make_rgeq(types = 'RichRedBcs')
     rgeq.g = start
 
   #initialise the start tda dictionary   
@@ -645,7 +645,7 @@ def test_critical():
     os.chdir('..')
 
 if __name__ == "__main__":
-  #main()
+  main()
   #dirrunreadgreen()
   #behaviour_conpoint()
   #parse_commandline()
@@ -654,6 +654,6 @@ if __name__ == "__main__":
   #addlevel() #function in rgfunctions
   #facintmain()
   #allstatesoneg()
-  stijnd()
+  #stijnd()
   #stijnijzer()
   #test_critical()

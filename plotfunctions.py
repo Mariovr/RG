@@ -716,5 +716,5 @@ def defineoptions():
   main(option,args)
 
 if __name__ == '__main__':
-  #defineoptions()
-  makemovie()
+  defineoptions()
+  #makemovie()
