@@ -17,13 +17,18 @@ import correlationfaribault as cf
 import writepairing as wp
 
 import os
+import re
 import time
+import numpy as np ; import math
 from math import log , sqrt
 from numpy import identity,array,dot,zeros,argmax , append , arange
 from numpy.linalg.linalg import LinAlgError
 import pylab as pl
 from scipy.optimize import fmin_bfgs , fmin_cg # from version 0.11 , minimize
+import sys
 
+sys.path.append('../../CIFlowImproved/rundir/')
+import filecollector as fc
 class VarSolver(object):
   """
   The base classe for the variatonal RG solver 
@@ -46,7 +51,7 @@ class VarSolver(object):
     energierg , rgeq =  wp.generating_datak(rgeq,None,afhvar,tol,val,rgwrite = True ,tdafilebool = False,exname = 'finetune',moviede = False, intofmotion = False, printstep = 30 , tofile = tofile, depvarindex = depvarindex)       
     return rgeq
 
-  def create_rgeq(self, elev ,deg, sen , g , ap, tda = 'strong' , start = 0.01, step = 0.001 , tofile = False , name = 'var'):
+  def create_rgeq(self, elev ,deg, sen , g , ap, tda = 'weak' , start = 0.01, step = 0.001 , tofile = False , name = 'var'):
     """
     Function that creates an rgeq (RichRedBcs) 
     """
@@ -63,18 +68,23 @@ class VarSolver(object):
       rgeq = rg.RichardsonSolver(rgeq).main_solve(tdastartd,xistep = 0.01,xival = 1.,rgwrite = False,plotrgvarpath = False, plotepath =False,xlim = None , ylim = None)
     else:
       g = rgeq.g ; rgeq.g = start ; tdastartd = rgf.tdadict_kleinekoppeling(ap,deg,sen)
-      energierg , rgeq =  wp.generating_datak(rgeq,tdastartd,'g',step,g,rgwrite = True ,tdafilebool = False,exname = name,moviede = False, intofmotion = False, printstep = 30, tofile = True)       
+      #tdastartd = {0:1}
+      energierg , rgeq =  wp.generating_datak(rgeq,tdastartd,'g',step,g,rgwrite = True ,tdafilebool = False,exname = name,moviede = False, intofmotion = False, printstep = 30, tofile = True, hamiltonian = self.ham)       
     return rgeq
 
 class GoldVarRG(VarSolver):
-  def __init__(self, ham , g = -0.001 ,step = -0.001 , end = -0.4 , outputfile = True, name = 'var'  ):
+  def __init__(self, ham , g = 0.001 ,step = 0.0001 , end = 0.9 , outputfile = False, name = 'var'  ):
     """
     Variational RG solver for the interaction constant g with a golden search method.
     """
     super(GoldVarRG,self).__init__(ham )
     elev , deg,sen,ap = self.ham.get_rgeq_char() 
     if not outputfile:
-      self.create_output_file(elev , deg , sen,ap , g, step ,end, name = name)
+      try:
+          self.create_output_file(elev , deg , sen,ap , g, step ,end, name = name)
+      except ValueError:
+          elev = range(1, self.ham.norb +1)
+          self.create_output_file(elev , deg , sen,ap , g, step ,end, name = name)
     self.create_reader(name = 'plotenergy%s.dat' %name)
     self.rgcor.rgeq = self.outpr.make_rgeq()
 
@@ -96,9 +106,17 @@ class GoldVarRG(VarSolver):
     sen = nlevel* [0.]
     self.create_rgeq(elev ,deg, sen , end , ap, tda = None , start = start, step = step , tofile = True, name = name)
 
+  def run_g(self , start , step,end):
+      import numpy as np
+      for g in np.arange(start , end, step):
+        print self.g_opt(g)
+
   def create_reader(self, name = 'plotenergy.dat'):
     self.outpr = dr.ReaderOutput(name)
     self.outpr.elevels , self.outpr.degeneracies , self.outpr.seniorities, self.outpr.npair  = self.ham.get_rgeq_char()
+
+  def get_opt_rgvar(self):
+      return self.rgcor.rgeq.rgsolutions
 
   def bracket(self,f,x1,h):
     """ 
@@ -196,7 +214,7 @@ class GoldVarRG(VarSolver):
   def optimize(self, start = -0.001, width = -0.01, tol = 1.0e-5, filestep = 0.001, h = 0.002):
     self.run(start = start ,width = width ,  tol = tol , filestep = filestep)
     #xmin = self.powell(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g), h =h)
-    xmin = fmin_bfgs(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) ,gtol = 1.0e-4 , epsilon = 1.0e-6, maxiter = 100)
+    xmin = fmin_bfgs(self.eopt , append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) ,gtol = 1.0e-4 , epsilon = 1.0e-3, maxiter = 100)
     #xmin = minimize(self.eopt, append(self.rgcor.rgeq.energiel.copy(),self.rgcor.rgeq.g) , args=(), method='Newton-CG', jac=None, hess=None, hessp=None, bounds=None, constraints=(), tol= 1e-5, callback=None, options=None) # method is one of: Nelder-Mead Powell CG BFGS Newton-CG Anneal L-BFGS-B TNC COBYLA SLSQP  dogleg  trust-ncg
     return xmin ,  self.eopt(xmin) 
 
@@ -263,11 +281,57 @@ def h2dis():
 
 def main2():
   #chemham = vh.Chem_Ham(filename = None ,atoms = [1,1], positions = [[0,0,0], [1.,0,0]],  basis =  '3-21G') #3-21G
-  chemham = vh.Chem_Ham(filename = None ,atoms = [10], positions = [ [0.,0,0]],  basis ='cc-pVDZ') #3-21G
-  grgvar = GoldVarRG(chemham,g = 0.0001, step = 0.0002 , end = 0.8, outputfile =False)
-  #grgvar.run(start = 0.0001 , width = 0.05 , tol = 1.0e-7, filestep = 0.0002)
-  xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.03,  tol = 1e-3, filestep =0.0002, h = 0.2)
-  print xmin , fmin , grgvar.rgcor.rdm1
+  #chemham = vh.Chem_Ham(filename = None ,atoms = [10], positions = [ [0.,0,0]],  basis ='cc-pVDZ') #3-21G
+  rootdir = 'noplus6-31g'
+  #hamdir = 'matrixelements_otherbasis'
+  #hamdir = 'matrixelements'
+  hamdir = 'mminbasis'
+  hamdir = 'output_run'
+  #hamdir = 'moham'
+  name = 'varrggonly'
+  rgf.generate_dir(rootdir, 'psioutput.dat') 
+  fileinfo = lambda x: float(re.search(r'[-\w\d_]*([\-+]?\d+[\.,]\d+[eEd]?[\-+]?\d*)[-\w\d]*\.[m]?(out|dat)' , x).group(1))
+  #fileinfo = lambda x: float(re.search(r'.*-[\w\d]*([\-+]?\d+[\.,]?\d+[eEDd]?[\-+]?\d*)orthon\.h5' , x).group(1))
+  #fileinfo = lambda x: float(re.search(r'([\-+]?\d+[\.,]?\d+[eEDd]?[\-+]?\d*)[-\w\d]*\.out' , x).group(1))
+  fileinfo = lambda x: 2
+  #search = r'mmin.*\.dat' 
+  #search = r'.+\.mout' 
+  #search = r'psi.+%s.+orthon.h5'
+  search = 'psi[-_.\w\d]+\.dat'
+  hamfiles = fc.File_Collector('.', search = search  ,notsearch = r'\.sw\w',sortfunction = fileinfo, filterf =  lambda x : fileinfo(x) >= -4. and fileinfo(x) < 10. )
+  
+  #runlist = [0.86374047590, 0.9, 1.02 , 1.1, 1.18124682530, 1.2, 1.34000000000, 1.38, 1.4, 1.45, 1.49875317470, 1.65750634940, 1.81625952410, 1.97501269880, 2.13376587350,2.2 ,  2.29251904820, 2.35 , 2.45127222290, 2.5 , 2.61002539760,2.7 ,  2.76877857230, 2.92753174700, 3.0 ,  3.08628492170, 3.1 , 3.2, 3.3 , 3.4 , 3.5 , 3.6 ,3.7 , 3.8 , 3.9 , 4. , 4.5 , 5. , 6.] #BeH2 (linear)
+  #runlist = list(np.arange(1,2.5,0.2)) + [2.5] + list(np.arange(2.6,3.6,0.5))
+  #runlist = list(np.arange(1,1.4,0.2))
+  #runlist = [x*math.pi/180. for x in range(55,61) ]
+  #runlist = list(np.arange(1.6,2.5,0.2))+ [2.5] + list(np.arange(2.6,3.6,0.5))
+  runlist = [0]
+  elist = []
+  with open(name, "w") as outputfile:
+      for index, file in enumerate(hamfiles.plotfiles):
+          chemham = vh.Psi4_ham(file, diagtp = False)
+          #chemham = vh.Psi4_ham(file, diagtp = False)
+          #chemham = vh.Psi4_ham('../../CIFlow/rundir/results/beh2_sto_3g_symcompc1/output_run/psi0_sto-3g3.00.mout')
+          grgvar = GoldVarRG(chemham,g = 0.001, step = 0.0001 , end = 0.5, outputfile =False)
+          #xmin , fmin = grgvar.run_g(0.0001 , 0.001 , 0.9)
+          xmin , fmin = grgvar.run(start = 0.0001 , width = 0.04 , tol = 1.0e-4, filestep = 0.001)
+          #try :
+          #  xmin , fmin = grgvar.run(start = 0.0001 , width = 0.04 , tol = 1.0e-4, filestep = 0.001)
+          #except Exception :
+          #  pass
+          #xmin , fmin = grgvar.optimize(start = 0.002 ,width = 0.03,  tol = 1e-4, filestep =0.0002, h = 0.2)
+          #try :
+              #xmin , fmin = grgvar.run(start = 0.00001 , width = 0.04 , tol = 1.0e-3, filestep = 0.0001)
+              #xmin , fmin = grgvar.optimize(start = 0.0001 ,width = 0.03,  tol = 1e-3, filestep =0.0002, h = 0.2)
+          #except :
+              #xmin , fmin = -1e10 , -1e10
+            
+          elist.append( (grgvar.rgcor.rgeq.copy() , fmin) )
+          #print xmin , fmin , grgvar.rgcor.rdm1
+          outputfile.write('%.10f    %s   =  %f\n' %(runlist[index], str(grgvar.rgcor.rgeq.copy()).replace('\n','') , fmin))
+          outputfile.flush()
+    
+          
 
 def main(*args , **kwargs):
   nuc2 = [[-0.24625, -0.16486, -0.14600, -0.18328, -0.23380],

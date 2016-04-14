@@ -34,7 +34,7 @@ def littleLoop(rgeq,stepg,n,complexstepd = 10000,end = None,backxi = False,xival
   if rgeq.rgsolutions is None:
     rgeq = rg.RichardsonSolver(rgeq).main_solve(pairingdtje, xival = xival)
   print ('######################################')
-  print ('Making g complex to circumvent a critical point on rgeq = %s and n = %g, stepg= %f, complexstepd = %f , dvar = %s, end = %f' %(str(rgeq),n,stepg,complexstepd,dvar,end))
+  print ('Making g complex to circumvent a critical point on rgeq = %s and n = %g, stepg= %s, complexstepd = %s , dvar = %s, end = %s' %(str(rgeq),n,str(stepg),str(complexstepd) ,str(dvar),str(end) ))
   print ('######################################')
   phi = abs(rgeq.g)/(1000.*n)
   if end == None:
@@ -158,7 +158,7 @@ def generate_dir(name,infilename,args = None, prefix = ''):
   """ generates a seperate dir for all the information of the
   handled problem
   """  
-  dirname = "%s" %name
+  dirname = os.path.join('results', "%s" %name)
   print ('#making directory for the results: %s' %dirname)
   dir = dirname #name of the directory
   #check if the directory already exists
@@ -172,7 +172,7 @@ def generate_dir(name,infilename,args = None, prefix = ''):
       print 'the directory you wanted to create does already exist so we added 1 to the end'
       dir += '1'     
       
-  os.mkdir(dir)
+  os.makedirs(dir)
   if isinstance(infilename,str): 
     shutil.copy(infilename,dir)
   if args is not None:
@@ -193,7 +193,6 @@ def calcnintgrondtoestand(rgeq):
   """
   som,i = 0  ,0
   #Moet functie bij voor het Dicke model
-  '''
   apair = rgeq.apair
   while apair > 0:
     som += rgeq.energiel[i]*(rgeq.ontaardingen[i]-rgeq.senioriteit[i]*2)
@@ -201,7 +200,6 @@ def calcnintgrondtoestand(rgeq):
     i += 1
   if apair < 0:
     som += rgeq.energiel[i-1]*apair*2
-  '''
   return som  
 
 #functie die de gemiddelde afstand tussen de eerste alev niveaus, in waarden meegeeft
@@ -335,7 +333,7 @@ def checkdegeneratie(waarden,deg,nauw = 0.00000000001):
       del(deg[i+1]) #because otherwise the just calculated degeneracy of the level is deleted
     nlev -= a-1
     assert(nlev == len(waarden))
-    #print i,nlev,degsom
+    print i,nlev,degsom
     i = i +1 
   assert(nlev == len(deg))
   return nlev, deg

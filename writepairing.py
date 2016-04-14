@@ -26,7 +26,7 @@ def parse_commandline():
   #handling of commandline variables #negatieve koppelingsconstante invoeren (deeltjes die elkaar aantrekken) 
   usage = "python writepairing.py [options] arguments \nOr use an inputfile (the header of outputfiles is also a valid inputformat, to know more about the structure of the input file check the datareader.py file (especially the Reader classes))"
   parser = OptionParser(usage = usage)
-  parser.add_option('-f','--filename',dest = 'filename' ,default = None,type = str, help = 'File of which each line consists of a dependend variable and the corresponding sp energylevels (seperated by tabs)')
+  parser.add_option('-f','--filename',dest = 'filename' ,default = None,type = str, help = 'File of which each line consists of a dependend variable and the corresponding sp energylevels (seperated by tabs) (only when the run (-r f) is a run over a geometry file) or an inputfile with a description of the system that needs to be solved.')
   parser.add_option('-v','--variable',dest = 'depvar',default = 'g' , help = 'Give the string representation of the independend variable that is going to be changed')
   parser.add_option('-i','--interactionc',dest = 'interactionconstant',default = -0.001,type = float,help = 'Give the pairing strength')
   parser.add_option('-e','--eta',dest = 'eta',default = 1.,type = float,help = 'Give the weight of the single particle part of the factorisable interacion Hamiltonian')
@@ -208,7 +208,7 @@ def generating_data(rgeq,nlevel,infilename,afh,step,end,wd2,pairingdict,afhxas,k
   plotenergyfile.close()
   ifile.close()
 
-def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True,tw= "w" , conarray = [], printstep = 30 , tofile = True , depvarindex = 0):
+def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exname = '',moviede = False,tdafilebool = False , intofmotion = True,tw= "w" , conarray = [], printstep = 30 , tofile = True , depvarindex = 0, hamiltonian = None):
   if tofile:
     print exname
     plotenergyfile = open("plotenergy%s.dat" %exname,tw) #opening of the file that's going to contain the results if you want to append data to existing file put howwrite = "a"
@@ -219,7 +219,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
     rgf.generate_dir(dirname,None) #we use the function from rgfunctions.py
   d = rgf.calculated(rgeq.energiel,rgeq.ontaardingen)  #Calculation of the mean distance between the used sp levels
   bb = rgf.calcnintgrondtoestand(rgeq) 
-  if tw == 'w' and tofile: dr.info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is: %s \n#d:  %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\n" %(dvar, d,bb),tdadict = pairingd)
+  if tw == 'w' and tofile: dr.info_1set(plotenergyfile,str(rgeq) , exinfo = "#The variable we change is: %s \n#d:  %f \n#and the noninteracting groundstate = %f\n#g\tcE\tgE\trgvar(real)\trgvar(imag)\t ...\tham\n" %(dvar, d,bb),tdadict = pairingd)
   lastkp = False #boolean to know if the last g value circumvented a critical point
   #if rgeq.rgsolutions is None we haven't determined any rg variables so the first solution has to be determined from the corresponding tda solutions (xi = 0 -> xi = 1)
   #REMARK after the first solution we have a good guess for the next sol of the file so we don't need to start from tda but can directly
@@ -303,7 +303,7 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
             complexstep /= 10.
             if complexstep < 100:
               complexstepd = 1e6
-          print 'circumventing a critical point at %g steps and step in complexspace is %f , at %s = %f ' %(n, complexstep,dvar,rgeq.getvar(dvar,  depvarindex))       
+          #print 'circumventing a critical point at %g steps and step in complexspace is %f , at %s = %f ' %(n, float(complexstep),dvar,rgeq.getvar(dvar,  depvarindex))       
     finally:
       if tdafilebool is True:
         rgsolver = rg.RichardsonSolver(rgeq)
@@ -324,6 +324,8 @@ def generating_datak(rgeq,pairingd,dvar,step,end ,xival = 1.,rgwrite = True,exna
         integralsofm = rgeq.intofmotion()
         for i in range(rgeq.alevel):
           plotenergyfile.write('\t%.12f' %(integralsofm[i].real))
+      if hamiltonian != None:
+          plotenergyfile.write('\t%.12f' % hamiltonian.calc_energy_rgeq(rgeq) )
       plotenergyfile.write('\n')
     lastkp = False   ; extremecp = False
     if (rgeq.getvar(dvar,  depvarindex)- abs(step)*0.8 < end and rgeq.getvar(dvar,  depvarindex) + abs(step)*0.8 > end):

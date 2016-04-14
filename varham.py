@@ -19,30 +19,104 @@ import rgfunctions as rgf
 import writepairing as wp
 import datareader as dr
 import varRG as vrg
+from scipy import linalg
 
 import pylab as pl
 import sys
 import os
 
+import numpy as np
+
+sys.path.append('../../CIFlow/rundir')
+import read_psi as rp
+
 """
 This file contains some implementations of Hamiltonians that can be approximated by our variational RG method: for example the nonrelativistic quantum chemical Hamiltonian, and the pairing Hamiltonian with a level dependend interaction constant.
 """
-
 class Hamiltoniaan(object):
   """
   Abstract base class of Hamiltonians we are going to investigate variationally with our Richardson-Gaudin ansatz.
   """
   def calc_energy(self,corfunc):
-    raise Exception("Implement this function in a subclass from Reader")
+    raise Exception("Implement this function in a subclass from Hamiltoniaan")
 
   def get_2p_integrals(self):
-    raise Exception("Implement this function in a subclass from Reader")
+    raise Exception("Implement this function in a subclass from Hamiltoniaan")
     
   def get_1p_integrals(self): 
-    raise Exception("Implement this function in a subclass from Reader")
+    raise Exception("Implement this function in a subclass from Hamiltoniaan")
 
   def get_rgeq_char(self):
-    raise Exception("Implement this function in a subclass from Reader")
+    raise Exception("Implement this function in a subclass from Hamiltoniaan")
+
+  def calc_energy_rgeq(self , rgeq):
+    #rgeq.energiel , rgeq.ontaardingen ,rgeq.senioriteit ,rgeq.alevel= rgf.uncheckdegeneratie(rgeq.energiel , rgeq.ontaardingen)
+    rgcor = cf.CorrelationFunction(None, calc_2rdm = True)
+    rgcor.set_rgeq(rgeq, calc_2rdm = True)
+    return self.calc_energy(rgcor)
+
+class Psi4_ham(Hamiltoniaan):
+  """
+  The non-relativistic quantum chemical Hamiltonian. With matrixelements extracted from psi4.
+  """
+  def __init__(self , filename = None , diagtp = False):
+      reader = rp.PsiReader(filename, isbig = False, numorbs = None, read_ints = True)
+      self.twoindex , self.fourindex = reader.list_to_matrix()
+      if diagtp:
+          evals , evecs = self.diagonalize(self.twoindex)
+          self.twoindex , self.fourindex = reader.transform_integrals(evecs)
+      self.norb = reader.values['norb']
+      self.nucrep =  reader.values['nucrep']
+      self.nup = reader.values['nalpha']
+      self.permarray = [] #when the epsilons of rich red ham are sorted this keeps the permutationarray.
+
+  def calc_energy(self , rgcor):
+    som = 0
+    #print self.permarray
+    for i in range(self.norb):
+      som += 2.*(self.twoindex[self.permarray[i],self.permarray[i]]) * rgcor.rdm1[i] #1rdm is diagonal
+      #print som ,'  ' ,self.twoindex[self.permarray[i],self.permarray[i]]
+    for i in range(self.norb):
+      for j in range(self.norb):
+        if i != j:
+          som += (2.*self.fourindex[self.permarray[i],self.permarray[i],self.permarray[j],self.permarray[j]] - self.fourindex[self.permarray[i],self.permarray[j],self.permarray[j],self.permarray[i]] )*rgcor.get_element_2rdm(i,j,i,j)
+          som += self.fourindex[self.permarray[i],self.permarray[j],self.permarray[i],self.permarray[j]] *rgcor.get_element_2rdm(i,i,j,j)
+      som += self.fourindex[self.permarray[i],self.permarray[i],self.permarray[i],self.permarray[i]] *rgcor.get_element_2rdm(i,i,i,i)
+    som += self.nucrep
+    print 'The energy = %f' %som
+    return som
+
+  def get_2p_integrals(self):
+    return self.fourindex
+
+    
+  def get_1p_integrals(self): 
+    return self.twoindex
+
+  def diagonalize(self, mat):
+      eigval , eigvec = linalg.eigh(mat)
+      return (eigval, eigvec)
+
+  def get_rgeq_char(self):
+    elev = []
+    for i in range(self.norb):
+        som = 0
+        som += self.twoindex[i,i]
+        #for j in range(self.nup): #we run only over the nup lowest occupied orbitals for the HF sp energies, also for the virtual orbitals.
+           #som += 1./2.*(self.fourindex[i,i,j,j]*2 - self.fourindex[i,j,j,i]) #the extra factor of 1/2 is to make sure that the energy of the system at g = 0, equals the HF energy so any, lowering of the energy by turning on g will improve on the HF values. (because the sum of the fock energies is not exactly equal to HF energy, up on this factor of 1/2).
+           #som += self.fourindex[i,i,j,j]*2 - self.fourindex[i,j,j,i] #This should be equal to the Fock eigenvalues.
+        elev.append(som)
+
+    elev = range(1,self.norb+1)
+    deg = np.array([2.] * self.norb)
+    sen = np.array([0.] * self.norb)
+    #self.hfe = 2*sum(elev[:self.nup]) + self.nucrep
+    #print 'HF energy: ' , self.hfe
+    print elev
+    self.permarray = sorted(range(len(elev)), key=lambda k: elev[k])
+    #self.permarray = range(len(elev))
+    elev.sort()
+    return elev , deg , sen , self.nup
 
 class Chem_Ham(Hamiltoniaan):
   """
@@ -172,7 +246,7 @@ class Chem_Ham(Hamiltoniaan):
     self.horton_ham.compute()
 
 
-class General_Pairing_Ham(Hamiltonian):
+class General_Pairing_Ham(Hamiltoniaan):
   """
   The paing Hamiltonian with a level dependend interaction constant.
   """
@@ -284,7 +358,47 @@ def calc():
   corp = (ehf -myres)/(  ehf - efci)
   print corp
 
+def play_horton():
+  chemham = Chem_Ham(filename = None ,atoms = [8,1,1], positions = [[0,0,0],[0,0,3.809934],[3.688913899461,0.,-0.952633889128]],  basis = 'sto-3g') 
+  ehf = chemham.horton_ham.system.extra['energy']
+  #efci =-14.5314443939 #Be fci 3-21G
+  efci = -127.9189885238 #get this from gaussian fci ne3-21G
+  #efciaugpvdz = -14.618287
+  myres = -127.822777
+  corp = (ehf -myres)/(  ehf - efci)
+  print corp
+
+def play_psi():
+  name = 'h2test2rdm4'
+  #chemham = Psi4_ham('../../CIFlow/rundir/results/beh2_sto_3g_symcompc1/output_run/psi0_sto-3g3.00.mout')
+  chemham = Psi4_ham('./results/h26-31g/matrixelements/psi0_6-31g0.60.mout')
+  print chemham.get_rgeq_char()
+  elev, deg , sen, ap  = chemham.get_rgeq_char()
+  g = 0.00001 ; elist = []
+  nlevel,deg = rgf.checkdegeneratie(elev ,list(deg))
+  sen = nlevel* [0.]
+  rgeq = vrg.VarSolver(None).create_rgeq(elev,deg, sen , g , ap, tda = 'weak')
+  rgeq.energiel , rgeq.ontaardingen ,rgeq.senioriteit ,rgeq.alevel= rgf.uncheckdegeneratie(rgeq.energiel , rgeq.ontaardingen)
+  rgeq.energiel = np.array([-1.34976654, -0.51770481, -0.26592237,  0.33503513 ])
+  with open('%s.dat' %name , 'w') as d:
+    for g in [ 0.001 * i for i in range(1,117)] + [0.119034351059] + [ 0.001 * i for i in range(121,200)] :
+      energierg , rgeq =  wp.generating_datak(rgeq, None,'g',0.001,g,rgwrite = True ,tdafilebool = False,exname = '',moviede = False, intofmotion = False, printstep = 30 )       
+      rgeqdm = cf.CorrelationFunction(rgeq, calc_2rdm = True)
+      #list2 =rgeqdm.get_1rdm() 
+      #print list2 , rgeqdm.rgeq.energy
+      #for i in range(len(rgeq.energiel)):
+          #for j in range(len(rgeq.energiel)):
+            #print i , ' ' , i, ' ' , j , ' ' , j ,' ', rgeqdm.get_element_2rdm(i,i,j,j)
+            #print i , ' ' , j, ' ' , i , ' ' , j ,' ',rgeqdm.get_element_2rdm(i,j,i,j)
+      elist.append(chemham.calc_energy(rgeqdm))
+      #corp = (ehf -elist[-1])/(  ehf - efci)
+      d.write('%f\t%f\t%f\n' % (g , elist[-1], rgeqdm.rgeq.energy))
+  pl.plot([ 0.001 * i for i in range(1,117)] + [0.119034351059] + [ 0.001 * i for i in range(121,200)], elist)
+  pl.savefig('%s.png' % name)
+
 if __name__ == "__main__":
-  calc()
+  #play_horton()
+  play_psi()
+  #calc()
   #chemmain()
   #nucmain()
